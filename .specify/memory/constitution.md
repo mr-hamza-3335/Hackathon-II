@@ -1,55 +1,200 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+  SYNC IMPACT REPORT
+  ==================
+  Version change: 0.0.0 → 1.0.0 (MAJOR - initial constitution ratification)
+
+  Modified principles: N/A (new constitution)
+
+  Added sections:
+  - Core Principles (6 global rules)
+  - Phase I Constitution (Console Todo)
+  - Phase II Constitution (Full-Stack Web)
+  - Phase III Constitution (AI Chatbot)
+  - Phase IV Constitution (Local K8s)
+  - Phase V Constitution (Cloud Deployment)
+  - Submission & Evaluation Rules
+  - Final Authority
+
+  Removed sections: N/A (new constitution)
+
+  Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ (compatible - Constitution Check section exists)
+  - .specify/templates/spec-template.md ✅ (compatible - no conflicts)
+  - .specify/templates/tasks-template.md ✅ (compatible - structure supports phased approach)
+
+  Follow-up TODOs: None
+-->
+
+# Evolution of Todo Constitution
+
+## Hackathon II – AI / Spec-Driven Development
+
+## Purpose
+
+This constitution defines the **rules, quality standards, and boundaries**
+for the Hackathon II "Evolution of Todo" project.
+
+All development MUST follow **Spec-Driven Development**.
+Claude Code and the developer are both REQUIRED to follow this constitution
+across all five phases of the hackathon.
+
+Manual coding is strictly prohibited.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Spec-Driven Development Only
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- No code may be written or edited manually.
+- Every feature MUST be defined in a markdown spec before implementation.
+- If behavior is unclear or incorrect, the spec MUST be updated first.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Single Repository Rule
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+- The entire project MUST live in a single GitHub repository.
+- Separate repositories per phase are NOT allowed.
+- Project history and evolution must remain visible.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Evolution Over Rewrite
 
-### [PRINCIPLE_6_NAME]
+- Each phase MUST extend the previous phase.
+- Existing functionality MUST NOT be rewritten or discarded unless explicitly stated in the spec.
+- Backward compatibility MUST be preserved whenever possible.
 
+### IV. Single Source of Truth
 
-[PRINCIPLE__DESCRIPTION]
+- All requirements live exclusively in `/specs/**`.
+- README files, comments, or verbal instructions are NOT authoritative.
+- Code behavior MUST always match the specs.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### V. Clean Architecture
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- Clear separation of concerns is required:
+  - `/specs` → requirements
+  - `/backend` → backend logic
+  - `/frontend` → UI
+  - `/infra`, `/docker`, `/k8s` → infrastructure
+- Naming conventions MUST be consistent and meaningful.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### VI. Professional Quality Bar
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Code MUST be readable, maintainable, and production-grade.
+- Unnecessary abstractions and over-engineering are prohibited.
+- Best practices for each technology stack MUST be followed.
+
+## Phase Constitutions
+
+### Phase I – Console Todo Application
+
+**Scope**: Command-line Todo application written in Python with in-memory storage only.
+
+**Functional Requirements**:
+- The application MUST support: Add task, Update task, Delete task, List tasks, Mark task complete/incomplete.
+
+**Technical Requirements**:
+- Python 3.13+
+- Clean project structure
+- No persistence between runs
+
+**Restrictions**:
+- No external databases
+- No web UI
+- No authentication
+
+### Phase II – Full-Stack Web Application
+
+**Scope**: Transform the console app into a multi-user web application.
+
+**Architecture**:
+- Frontend: Next.js (App Router)
+- Backend: FastAPI (Python)
+- Database: PostgreSQL (Neon Serverless)
+- Authentication: Better Auth with JWT
+
+**Security Rules**:
+- All API endpoints MUST require authentication.
+- JWT tokens MUST be verified on every request.
+- Users may ONLY access their own tasks.
+
+**Data Rules**:
+- Tasks MUST be associated with a user ID.
+- All queries MUST be filtered by authenticated user.
+
+### Phase III – AI-Powered Todo Chatbot
+
+**Scope**: Introduce a conversational AI interface for managing todos.
+
+**AI Behavior Rules**:
+- The chatbot MUST interpret natural language commands.
+- The chatbot MUST call MCP tools to manage tasks.
+- The chatbot MUST NOT directly manipulate the database.
+
+**MCP Tools**: add_task, list_tasks, update_task, delete_task, complete_task
+
+**Stateless Design**:
+- Each request MUST be handled independently.
+- Server-side conversation memory is NOT allowed.
+
+### Phase IV – Local Kubernetes Deployment
+
+**Scope**: Deploy the application locally using Kubernetes.
+
+**Infrastructure Rules**:
+- All services MUST be containerized using Docker.
+- Kubernetes deployment MUST use Minikube and Helm charts.
+
+**AIOps**:
+- Use kubectl-ai and kagent where applicable.
+- Deployment MUST be reproducible.
+
+### Phase V – Advanced Cloud Deployment
+
+**Scope**: Deploy the system to a cloud Kubernetes provider.
+
+**Cloud Providers** (Any One): Oracle Cloud (Recommended), Azure AKS, Google GKE
+
+**Event-Driven Architecture**:
+- Kafka MUST be used for: Task reminders, Recurring tasks, Activity/audit logs, Real-time synchronization.
+
+**Reliability Rules**:
+- System MUST tolerate restarts.
+- Events MUST be durable and replayable.
+
+## Submission & Evaluation Rules
+
+- Each phase MUST be independently demoable.
+- The same repository will be submitted every Sunday.
+- Phase-specific GitHub links may reference branches or tags.
+- Demo videos MUST clearly show working functionality.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### Final Authority
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+If any conflict arises:
+1. This constitution takes priority.
+2. Specs take priority over code.
+3. Manual decisions are invalid without spec updates.
+
+### Amendment Procedure
+
+- Constitution amendments require explicit documentation.
+- All changes MUST be versioned with semantic versioning.
+- MAJOR: Backward incompatible governance/principle removals or redefinitions.
+- MINOR: New principle/section added or materially expanded guidance.
+- PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
+
+### Compliance Review
+
+- All PRs/reviews MUST verify compliance with this constitution.
+- Non-compliance MUST be flagged and resolved before merge.
+
+## Closing Statement
+
+This hackathon evaluates:
+- Your ability to think in systems
+- Your mastery of Spec-Driven Development
+- Your skill in using AI as a software architect
+
+Clear specs produce clean systems.
+
+**Version**: 1.0.0 | **Ratified**: 2025-01-07 | **Last Amended**: 2025-01-07

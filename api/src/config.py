@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     cookie_httponly: bool = True
     cookie_max_age: int = 86400  # 24 hours in seconds
 
+    # AI Assistant Configuration (Phase 3)
+    anthropic_api_key: str = ""  # Required for AI features
+    ai_model: str = "claude-3-haiku-20240307"  # Fast, cost-effective model
+    ai_timeout_seconds: int = 10  # API timeout (NFR-301)
+    ai_rate_limit_per_minute: int = 30  # Per user rate limit
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

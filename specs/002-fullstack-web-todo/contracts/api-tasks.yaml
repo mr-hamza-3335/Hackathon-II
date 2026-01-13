@@ -1,0 +1,513 @@
+# API Contract: Task Management Endpoints
+# Feature: 002-fullstack-web-todo
+# Date: 2026-01-08
+
+openapi: 3.1.0
+info:
+  title: Todo App - Task Management API
+  version: 1.0.0
+  description: |
+    Task management endpoints for CRUD operations.
+    All endpoints require authentication and filter tasks by the authenticated user.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.todo.example.com
+    description: Production
+
+tags:
+  - name: tasks
+    description: Task management operations
+
+security:
+  - cookieAuth: []
+
+paths:
+  /api/v1/tasks:
+    get:
+      tags: [tasks]
+      summary: List all tasks for the current user
+      operationId: listTasks
+      description: |
+        Returns all tasks owned by the authenticated user.
+        Tasks are ordered by creation date (newest first).
+
+        **Requirement References**: FR-011, FR-008
+      parameters:
+        - name: completed
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by completion status
+      responses:
+        '200':
+          description: List of user's tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+              examples:
+                with_tasks:
+                  summary: User has tasks
+                  value:
+                    tasks:
+                      - id: "550e8400-e29b-41d4-a716-446655440001"
+                        title: "Buy groceries"
+                        completed: false
+                        created_at: "2026-01-08T10:30:00Z"
+                        updated_at: "2026-01-08T10:30:00Z"
+                      - id: "550e8400-e29b-41d4-a716-446655440002"
+                        title: "Finish project"
+                        completed: true
+                        created_at: "2026-01-08T09:00:00Z"
+                        updated_at: "2026-01-08T12:00:00Z"
+                    count: 2
+                empty:
+                  summary: User has no tasks
+                  value:
+                    tasks: []
+                    count: 0
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [tasks]
+      summary: Create a new task
+      operationId: createTask
+      description: |
+        Creates a new task for the authenticated user.
+        Task is automatically assigned a unique ID and associated with the user.
+
+        **Requirement References**: FR-009, FR-010, FR-016, FR-017, FR-018
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+            examples:
+              valid:
+                summary: Valid task
+                value:
+                  title: "Buy groceries"
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440001"
+                title: "Buy groceries"
+                completed: false
+                created_at: "2026-01-08T10:30:00Z"
+                updated_at: "2026-01-08T10:30:00Z"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                empty_title:
+                  summary: Empty title
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Invalid input data"
+                      details:
+                        - field: "title"
+                          message: "Title is required"
+                title_too_long:
+                  summary: Title exceeds limit
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Invalid input data"
+                      details:
+                        - field: "title"
+                          message: "Title must be at most 500 characters"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Task unique identifier
+
+    get:
+      tags: [tasks]
+      summary: Get a specific task
+      operationId: getTask
+      description: |
+        Returns a single task by ID.
+        Only accessible if the task belongs to the authenticated user.
+
+        **Requirement References**: FR-008
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied (task belongs to another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "AUTHORIZATION_ERROR"
+                  message: "Access denied"
+                  details: []
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "NOT_FOUND"
+                  message: "Task not found"
+                  details: []
+
+    patch:
+      tags: [tasks]
+      summary: Update a task
+      operationId: updateTask
+      description: |
+        Updates a task's title and/or completion status.
+        Only accessible if the task belongs to the authenticated user.
+
+        **Requirement References**: FR-014, FR-012, FR-013, FR-016, FR-008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+            examples:
+              update_title:
+                summary: Update title only
+                value:
+                  title: "Buy organic groceries"
+              mark_complete:
+                summary: Mark as complete
+                value:
+                  completed: true
+              mark_incomplete:
+                summary: Mark as incomplete
+                value:
+                  completed: false
+              update_both:
+                summary: Update title and status
+                value:
+                  title: "Updated task"
+                  completed: true
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                empty_title:
+                  summary: Empty title
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Invalid input data"
+                      details:
+                        - field: "title"
+                          message: "Title cannot be empty"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [tasks]
+      summary: Delete a task
+      operationId: deleteTask
+      description: |
+        Permanently deletes a task.
+        Only accessible if the task belongs to the authenticated user.
+
+        **Requirement References**: FR-015, FR-008
+      responses:
+        '200':
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Task deleted successfully"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tasks/{taskId}/complete:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Task unique identifier
+
+    post:
+      tags: [tasks]
+      summary: Mark a task as complete
+      operationId: completeTask
+      description: |
+        Convenience endpoint to mark a task as complete.
+        Equivalent to PATCH with `completed: true`.
+
+        **Requirement References**: FR-012
+      responses:
+        '200':
+          description: Task marked as complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tasks/{taskId}/uncomplete:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Task unique identifier
+
+    post:
+      tags: [tasks]
+      summary: Mark a task as incomplete
+      operationId: uncompleteTask
+      description: |
+        Convenience endpoint to mark a task as incomplete.
+        Equivalent to PATCH with `completed: false`.
+
+        **Requirement References**: FR-013
+      responses:
+        '200':
+          description: Task marked as incomplete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token stored in HTTP-only cookie
+
+  schemas:
+    CreateTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title (1-500 characters)
+          example: "Buy groceries"
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Updated task title (1-500 characters)
+          example: "Buy organic groceries"
+        completed:
+          type: boolean
+          description: Task completion status
+          example: true
+      description: At least one field must be provided
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Task unique identifier
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        title:
+          type: string
+          description: Task title
+          example: "Buy groceries"
+        completed:
+          type: boolean
+          description: Completion status
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-01-08T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2026-01-08T10:30:00Z"
+
+    TaskListResponse:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResponse'
+          description: Array of tasks
+        count:
+          type: integer
+          description: Total number of tasks
+          example: 5
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - AUTHENTICATION_ERROR
+                - AUTHORIZATION_ERROR
+                - NOT_FOUND
+                - INTERNAL_ERROR
+              description: Error type code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    description: Field that caused the error
+                  message:
+                    type: string
+                    description: Field-specific error message
+              description: Field-level validation errors

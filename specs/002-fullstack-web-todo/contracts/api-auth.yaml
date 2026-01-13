@@ -1,0 +1,296 @@
+# API Contract: Authentication Endpoints
+# Feature: 002-fullstack-web-todo
+# Date: 2026-01-08
+
+openapi: 3.1.0
+info:
+  title: Todo App - Authentication API
+  version: 1.0.0
+  description: |
+    Authentication endpoints for user registration, login, and logout.
+    Uses JWT tokens stored in HTTP-only cookies.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.todo.example.com
+    description: Production
+
+tags:
+  - name: auth
+    description: Authentication operations
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user
+      operationId: registerUser
+      description: |
+        Creates a new user account and automatically logs them in.
+        Sets JWT token in HTTP-only cookie.
+
+        **Requirement References**: FR-001, FR-002, FR-003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              valid:
+                summary: Valid registration
+                value:
+                  email: "user@example.com"
+                  password: "securepassword123"
+      responses:
+        '201':
+          description: User registered successfully
+          headers:
+            Set-Cookie:
+              description: JWT token in HTTP-only cookie
+              schema:
+                type: string
+                example: "auth_token=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                password_too_short:
+                  summary: Password validation error
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Invalid input data"
+                      details:
+                        - field: "password"
+                          message: "Password must be at least 8 characters"
+                empty_email:
+                  summary: Missing email
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Invalid input data"
+                      details:
+                        - field: "email"
+                          message: "Email is required"
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "CONFLICT"
+                  message: "Email already registered"
+                  details: []
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in an existing user
+      operationId: loginUser
+      description: |
+        Authenticates user and sets JWT token in HTTP-only cookie.
+        Returns generic error for security (doesn't reveal which field is wrong).
+
+        **Requirement References**: FR-004, FR-005
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              valid:
+                summary: Valid login
+                value:
+                  email: "user@example.com"
+                  password: "securepassword123"
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: JWT token in HTTP-only cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "AUTHENTICATION_ERROR"
+                  message: "Invalid email or password"
+                  details: []
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Log out the current user
+      operationId: logoutUser
+      description: |
+        Clears the authentication cookie.
+
+        **Requirement References**: FR-007
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              description: Cleared auth cookie
+              schema:
+                type: string
+                example: "auth_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user info
+      operationId: getCurrentUser
+      description: |
+        Returns the currently authenticated user's information.
+        Used to check authentication status.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token stored in HTTP-only cookie
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 8
+          description: User's password (min 8 characters)
+          example: "securepassword123"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          description: User's password
+          example: "securepassword123"
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User's unique identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2026-01-08T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - AUTHENTICATION_ERROR
+                - CONFLICT
+                - INTERNAL_ERROR
+              description: Error type code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    description: Field that caused the error
+                  message:
+                    type: string
+                    description: Field-specific error message
+              description: Field-level validation errors

@@ -1,6 +1,7 @@
 """
 Configuration module for environment variables.
 T014: Create configuration module in api/src/config.py
+Phase III: Cohere AI Integration (FREE tier)
 """
 from pydantic_settings import BaseSettings
 from functools import lru_cache
@@ -34,6 +35,17 @@ class Settings(BaseSettings):
     cookie_samesite: str = "lax"
     cookie_httponly: bool = True
     cookie_max_age: int = 86400  # 24 hours in seconds
+
+    # AI Assistant Configuration (Phase 3) - Cohere FREE tier
+    # SECURITY: API keys loaded from environment variables only - NEVER hardcode
+    cohere_api_key: str = ""  # Set via COHERE_API_KEY env var
+    ai_provider: str = "cohere"  # AI provider name
+    ai_model: str = "command-a-03-2025"  # Cohere model (FREE tier)
+    ai_temperature: float = 0.3  # Lower temperature for consistent responses
+    ai_max_tokens: int = 300  # Max tokens per response
+    ai_timeout_seconds: int = 30  # API timeout
+    ai_rate_limit_per_minute: int = 30  # Per user rate limit
+    ai_max_input_length: int = 10000  # Max input message length for security
 
     class Config:
         env_file = ".env"

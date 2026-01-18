@@ -24,7 +24,10 @@ export default function DashboardPage() {
         setTasks(response.tasks);
       } catch (err) {
         if (err instanceof ApiError) {
-          setError(err.message);
+          // Don't show error for 401 - global auth handler will redirect
+          if (err.status !== 401) {
+            setError(err.message);
+          }
         } else {
           setError('Failed to load tasks. Please refresh the page.');
         }

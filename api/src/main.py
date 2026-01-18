@@ -3,14 +3,18 @@ FastAPI application entry point.
 T018, T019, T082: Main application with CORS, rate limiting, and error handling
 Requirements: FR-032-035, Partial Failure Scenarios
 """
-from fastapi import FastAPI, Request
+import logging
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+from jose import JWTError
 
 from .config import get_settings
-from .routes import api_router
+from .routes import api_router, chat_api_router
 from .middleware.rate_limit import RateLimitMiddleware
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -73,6 +77,54 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     )
 
 
+# Global JWT exception handler - ensures consistent 401 responses
+@app.exception_handler(JWTError)
+async def jwt_exception_handler(request: Request, exc: JWTError):
+    """
+    Handle JWT errors globally.
+
+    Returns consistent 401 response for all JWT-related errors.
+    Logs error server-side only - never expose JWT details to client.
+    """
+    logger.warning(f"JWT error on {request.url.path}: {type(exc).__name__}")
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": {
+                "code": "AUTHENTICATION_ERROR",
+                "message": "Invalid or expired token",
+                "details": [],
+            }
+        },
+    )
+
+
+# Handle HTTPException to ensure consistent error format
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Handle HTTP exceptions with consistent format.
+    """
+    # If detail is already our error format, use it
+    if isinstance(exc.detail, dict) and "error" in exc.detail:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail,
+        )
+
+    # Otherwise, wrap in our standard format
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": "HTTP_ERROR",
+                "message": str(exc.detail) if exc.detail else "An error occurred",
+                "details": [],
+            }
+        },
+    )
+
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle unexpected errors without exposing internals."""
@@ -91,6 +143,9 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Include API router with v1 prefix (FR-032)
 app.include_router(api_router)
+
+# Phase III: Include chat router at root level (POST /api/{user_id}/chat)
+app.include_router(chat_api_router)
 
 
 @app.get("/")

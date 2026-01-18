@@ -1,18 +1,27 @@
 /**
  * Premium protected layout with full-screen dashboard design.
  * PakAura Design System
+ *
+ * SECURITY: Handles auth errors globally with auto-recovery.
+ * User is never stuck in broken auth state.
  */
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Loader2 } from 'lucide-react';
+import { LogOut, Loader2, LayoutDashboard, Bot } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { getCurrentUser, logout } from '@/lib';
+import { getCurrentUser, logout, onAuthError } from '@/lib';
 import { User } from '@/types';
+
+const navItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/assistant', label: 'AI Assistant', icon: Bot },
+];
 
 export default function ProtectedLayout({
   children,
@@ -20,9 +29,26 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  /**
+   * Handle auth error - clear state and redirect to login.
+   * This provides auto-recovery from invalid/expired tokens.
+   */
+  const handleAuthError = useCallback(() => {
+    setUser(null);
+    setLoading(false);
+    router.push('/login');
+  }, [router]);
+
+  // Subscribe to global auth errors for auto-recovery
+  useEffect(() => {
+    const unsubscribe = onAuthError(handleAuthError);
+    return unsubscribe;
+  }, [handleAuthError]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -34,6 +60,7 @@ export default function ProtectedLayout({
         }
         setUser(currentUser);
       } catch (error) {
+        // Auth error handler will redirect if it's a 401
         router.push('/login');
       } finally {
         setLoading(false);
@@ -46,8 +73,10 @@ export default function ProtectedLayout({
     setLoggingOut(true);
     try {
       await logout();
-      router.push('/login');
     } catch (error) {
+      // Ignore errors during logout
+    } finally {
+      setUser(null);
       router.push('/login');
     }
   };
@@ -89,8 +118,35 @@ export default function ProtectedLayout({
       >
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 lg:h-18">
-            {/* Logo */}
-            <Logo size="md" />
+            {/* Logo and nav */}
+            <div className="flex items-center gap-6">
+              <Logo size="md" />
+
+              {/* Navigation */}
+              <nav className="hidden md:flex items-center gap-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
+                        transition-all duration-200
+                        ${isActive
+                          ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                        }
+                      `}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
             {/* User info & actions */}
             <div className="flex items-center gap-3 sm:gap-4">
@@ -148,9 +204,40 @@ export default function ProtectedLayout({
         </AnimatePresence>
       </main>
 
-      {/* Footer */}
+      {/* Mobile Bottom Navigation */}
+      <motion.nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 safe-area-inset-bottom"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="flex items-center justify-around py-2 px-4">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`
+                  flex flex-col items-center gap-1 py-2 px-4 rounded-xl
+                  transition-all duration-200
+                  ${isActive
+                    ? 'text-indigo-600 dark:text-indigo-400'
+                    : 'text-slate-500 dark:text-slate-400'
+                  }
+                `}
+              >
+                <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                <span className="text-xs font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </motion.nav>
+
+      {/* Footer - hidden on mobile due to bottom nav */}
       <motion.footer
-        className="relative z-10 py-6 text-center border-t border-slate-200/30 dark:border-slate-800/30"
+        className="relative z-10 py-6 text-center border-t border-slate-200/30 dark:border-slate-800/30 hidden md:block"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
@@ -159,6 +246,9 @@ export default function ProtectedLayout({
           PakAura &copy; {new Date().getFullYear()} &middot; Organize your day with clarity
         </p>
       </motion.footer>
+
+      {/* Spacer for mobile bottom nav */}
+      <div className="md:hidden h-20" />
     </div>
   );
 }

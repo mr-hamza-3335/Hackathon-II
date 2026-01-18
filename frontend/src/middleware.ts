@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Paths that require authentication
-const protectedPaths = ['/dashboard'];
+const protectedPaths = ['/dashboard', '/assistant'];
 
 // Paths that should redirect to dashboard if authenticated
 const authPaths = ['/login', '/register'];

@@ -2,7 +2,13 @@
 JWT verification middleware.
 T016: Create JWT verification middleware in api/src/middleware/auth.py with 24-hour expiration check
 Requirements: FR-006, FR-028, FR-029
+
+SECURITY:
+- JWT errors logged server-side only
+- Generic error messages returned to client
+- No internal details exposed
 """
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -17,6 +23,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import User
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Cookie-based auth scheme (NFR-007)
@@ -51,6 +58,7 @@ class JWTAuth:
         Decode and validate JWT token.
 
         Returns None if token is invalid or expired (FR-029).
+        SECURITY: Errors logged server-side only.
         """
         try:
             payload = jwt.decode(
@@ -59,7 +67,9 @@ class JWTAuth:
                 algorithms=[settings.jwt_algorithm],
             )
             return payload
-        except JWTError:
+        except JWTError as e:
+            # Log error server-side only - never expose to client
+            logger.warning(f"JWT decode failed: {type(e).__name__}")
             return None
 
 

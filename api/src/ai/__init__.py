@@ -3,6 +3,11 @@ AI Assistant module for PakAura Phase 3.
 
 This module provides natural language task management capabilities
 through an AI-powered assistant that interfaces with existing task APIs.
+
+Phase III: Cohere AI Integration (FREE tier)
+- Uses Cohere's command-r model for conversational responses
+- Lightweight intent detection with keyword NLP
+- DEMO MODE when API key is not configured
 """
 
 from .schemas import (
@@ -18,9 +23,6 @@ from .prompts import (
     USER_PROMPT_TEMPLATE,
     build_user_prompt,
 )
-from .client import AIClient
-from .intent_router import IntentRouter
-from .task_executor import TaskExecutor
 from .sanitizer import InputSanitizer
 from .errors import (
     AIError,
@@ -30,6 +32,7 @@ from .errors import (
     AIParseError,
     create_error_response,
 )
+from .agent import CohereTaskAgent, TaskManagerAgent, SimplifiedTaskAgent, AgentResult, get_agent
 
 __all__ = [
     # Schemas
@@ -43,12 +46,6 @@ __all__ = [
     "SYSTEM_PROMPT",
     "USER_PROMPT_TEMPLATE",
     "build_user_prompt",
-    # Client
-    "AIClient",
-    # Router
-    "IntentRouter",
-    # Executor
-    "TaskExecutor",
     # Sanitizer
     "InputSanitizer",
     # Errors
@@ -58,4 +55,10 @@ __all__ = [
     "AIRateLimitError",
     "AIParseError",
     "create_error_response",
+    # Phase III: Cohere AI Agent
+    "CohereTaskAgent",
+    "TaskManagerAgent",
+    "SimplifiedTaskAgent",
+    "AgentResult",
+    "get_agent",
 ]

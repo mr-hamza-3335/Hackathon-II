@@ -1,14 +1,13 @@
 """
 AI Model API Client.
 
-Handles communication with the AI model service (Anthropic Claude).
+Handles communication with the AI model service (Cohere).
 Implements timeout handling, error recovery, and response parsing.
 
 Requirements: P3-T04, NFR-301
 """
 
 import json
-import asyncio
 import logging
 from typing import Any, Optional
 
@@ -32,12 +31,12 @@ class AIClient:
     Client for interacting with the AI model API.
 
     Handles API communication, response parsing, and error handling.
-    Uses Anthropic Claude API for natural language processing.
+    Uses Cohere API for natural language processing (FREE tier).
     """
 
-    ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-    DEFAULT_MODEL = "claude-3-haiku-20240307"
-    DEFAULT_TIMEOUT = 10  # seconds
+    COHERE_API_URL = "https://api.cohere.com/v2/chat"
+    DEFAULT_MODEL = "command-r"  # Free tier model
+    DEFAULT_TIMEOUT = 10  # seconds (as per requirements)
     MAX_TOKENS = 1024
 
     def __init__(
@@ -50,9 +49,9 @@ class AIClient:
         Initialize the AI client.
 
         Args:
-            api_key: Anthropic API key
-            model: Model identifier (default: claude-3-haiku)
-            timeout: Request timeout in seconds (default: 10)
+            api_key: Cohere API key
+            model: Model identifier (default: command-r)
+            timeout: Request timeout in seconds (default: 30)
         """
         self.api_key = api_key
         self.model = model or self.DEFAULT_MODEL
@@ -88,26 +87,33 @@ class AIClient:
             pending_confirmation=pending_confirmation
         )
 
-        # Prepare the API request
+        # Prepare the API request for Cohere v2
         headers = {
             "Content-Type": "application/json",
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01"
+            "Authorization": f"Bearer {self.api_key}",
         }
 
+        # Cohere v2 chat format
         payload = {
             "model": self.model,
-            "max_tokens": self.MAX_TOKENS,
-            "system": SYSTEM_PROMPT,
             "messages": [
-                {"role": "user", "content": user_prompt}
-            ]
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            "max_tokens": self.MAX_TOKENS,
+            "temperature": 0.3,  # Lower temperature for more consistent JSON output
         }
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.ANTHROPIC_API_URL,
+                    self.COHERE_API_URL,
                     headers=headers,
                     json=payload
                 )
@@ -122,7 +128,8 @@ class AIClient:
                     raise AIModelError("AI service is temporarily unavailable")
 
                 if response.status_code >= 400:
-                    logger.error(f"AI API client error: {response.status_code}")
+                    error_detail = response.text
+                    logger.error(f"AI API client error: {response.status_code} - {error_detail}")
                     raise AIModelError("Failed to communicate with AI service")
 
                 # Parse the response
@@ -151,8 +158,11 @@ class AIClient:
             AIParseError: If response cannot be parsed
         """
         try:
-            # Extract the text content from Claude's response
-            content = response_data.get("content", [])
+            # Extract the text content from Cohere's v2 response
+            # Response structure: {"message": {"role": "assistant", "content": [{"type": "text", "text": "..."}]}}
+            message = response_data.get("message", {})
+            content = message.get("content", [])
+
             if not content:
                 raise AIParseError("Empty response from AI model")
 
@@ -175,6 +185,16 @@ class AIClient:
             if clean_text.endswith("```"):
                 clean_text = clean_text[:-3]
             clean_text = clean_text.strip()
+
+            # Try to find JSON in the response
+            if not clean_text.startswith("{"):
+                # Try to extract JSON from the text
+                start_idx = clean_text.find("{")
+                end_idx = clean_text.rfind("}") + 1
+                if start_idx != -1 and end_idx > start_idx:
+                    clean_text = clean_text[start_idx:end_idx]
+                else:
+                    raise AIParseError("Could not find JSON in AI response")
 
             parsed = json.loads(clean_text)
 
@@ -273,6 +293,86 @@ def get_fallback_response(user_message: str) -> AIResponse:
     return AIResponse(
         intent=Intent.CLARIFY,
         message="I'm having trouble understanding. Could you try rephrasing? You can say things like 'Show my tasks' or 'Add task: buy groceries'.",
+        action=AIAction(type=ActionType.NONE),
+        data=None
+    )
+
+
+# Demo mode responses for when API key is missing
+def get_demo_response(user_message: str) -> AIResponse:
+    """
+    Generate demo mode responses when no API key is configured.
+
+    Provides a friendly experience without requiring a paid API key.
+    """
+    message_lower = user_message.lower().strip()
+
+    # Demo mode: provide helpful responses based on keywords
+    if any(word in message_lower for word in ["show", "list", "view", "see", "all", "my task"]):
+        return AIResponse(
+            intent=Intent.LIST,
+            message="📋 Here are your tasks! (Demo Mode - AI responses are simulated)",
+            action=AIAction(
+                type=ActionType.API_CALL,
+                endpoint="/tasks",
+                method="GET"
+            ),
+            data={"filter": "all"}
+        )
+
+    if any(word in message_lower for word in ["add", "create", "new"]):
+        # Extract task title from common patterns
+        title = None
+        for pattern in ["add task ", "create task ", "add a task ", "create a task ", "new task ", "add "]:
+            if pattern in message_lower:
+                title = message_lower.split(pattern)[-1].strip()
+                # Clean up common suffixes
+                for suffix in [" to my list", " please", " for me"]:
+                    if title.endswith(suffix):
+                        title = title[:-len(suffix)]
+                break
+
+        if title and len(title) > 0:
+            return AIResponse(
+                intent=Intent.CREATE,
+                message=f"✅ I'll create a task '{title}' for you! (Demo Mode)",
+                action=AIAction(
+                    type=ActionType.API_CALL,
+                    endpoint="/tasks",
+                    method="POST",
+                    payload={"title": title.title()}
+                ),
+                data=None
+            )
+
+    if any(word in message_lower for word in ["complete", "done", "finish", "mark"]):
+        return AIResponse(
+            intent=Intent.INFO,
+            message="✨ To complete a task in Demo Mode, please use the checkboxes in your task list. Enable AI with a Cohere API key for voice commands!",
+            action=AIAction(type=ActionType.NONE),
+            data=None
+        )
+
+    if any(word in message_lower for word in ["delete", "remove"]):
+        return AIResponse(
+            intent=Intent.INFO,
+            message="🗑️ To delete a task in Demo Mode, please use the task options in your task list. Enable AI with a Cohere API key for voice commands!",
+            action=AIAction(type=ActionType.NONE),
+            data=None
+        )
+
+    if any(word in message_lower for word in ["help", "what can", "how do", "hello", "hi"]):
+        return AIResponse(
+            intent=Intent.INFO,
+            message="👋 Hi! I'm PakAura Assistant running in Demo Mode.\n\n🎯 What I can do:\n• 'Show my tasks' - List all your tasks\n• 'Add task: [name]' - Create a new task\n\n💡 For full AI capabilities (complete, update, delete by voice), add your free Cohere API key!",
+            action=AIAction(type=ActionType.NONE),
+            data=None
+        )
+
+    # Default demo response
+    return AIResponse(
+        intent=Intent.INFO,
+        message="🤖 Demo Mode Active! Try saying:\n• 'Show my tasks'\n• 'Add task buy groceries'\n• 'Help'\n\nFor full AI features, configure your free Cohere API key.",
         action=AIAction(type=ActionType.NONE),
         data=None
     )

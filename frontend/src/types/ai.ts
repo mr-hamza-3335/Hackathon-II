@@ -62,8 +62,9 @@ export interface AIResponse {
 
 // AI status response
 export interface AIStatusResponse {
-  available: boolean;
-  model: string | null;
+  provider: 'cohere' | 'demo';
+  demo_mode: boolean;
+  configured: boolean;
   message: string;
 }
 

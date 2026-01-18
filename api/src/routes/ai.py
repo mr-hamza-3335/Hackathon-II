@@ -4,6 +4,11 @@ AI Assistant routes.
 Provides the /api/v1/ai/chat endpoint for natural language task management.
 All requests require authentication via HTTP-only cookie.
 
+SECURITY:
+- API key loaded from environment variable only
+- Input sanitization and length limits enforced
+- No raw model output exposed to client
+
 Requirements: P3-T07, FR-301, FR-302, FR-303, NFR-301, NFR-302, SEC-301
 """
 
@@ -18,6 +23,7 @@ from ..config import get_settings
 from ..middleware.auth import get_current_user
 from ..models import User
 from ..ai import AIRequest, AIResponse, IntentRouter, AIClient
+from ..ai.client import get_demo_response
 from ..ai.errors import (
     AIError,
     InputValidationError,
@@ -58,6 +64,72 @@ class ConversationState:
         cls._pending_confirmations.pop(user_id, None)
 
 
+def is_ai_configured() -> bool:
+    """
+    Check if AI service is properly configured.
+
+    SECURITY: Only checks if env var is set and not a placeholder.
+    API key is NEVER logged or exposed.
+    """
+    key = settings.cohere_api_key
+    # Check key exists and is not a placeholder value
+    return bool(
+        key
+        and len(key) > 10
+        and key != "your-cohere-api-key"
+        and not key.startswith("your-")
+    )
+
+
+def validate_input(message: str) -> str:
+    """
+    Validate and sanitize user input.
+
+    SECURITY: Enforces max length and basic sanitization.
+    """
+    if not message or not message.strip():
+        raise InputValidationError("Message cannot be empty")
+
+    # Enforce max length
+    if len(message) > settings.ai_max_input_length:
+        raise InputValidationError(
+            f"Message too long. Maximum {settings.ai_max_input_length} characters allowed."
+        )
+
+    # Basic sanitization - remove control characters
+    sanitized = ''.join(char for char in message if ord(char) >= 32 or char in '\n\r\t')
+
+    return sanitized.strip()
+
+
+@router.get("/status")
+async def ai_status(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Check AI assistant availability.
+
+    Returns status in the exact format required:
+    {
+        provider: "cohere" | "demo",
+        demo_mode: boolean,
+        configured: boolean
+    }
+    """
+    configured = is_ai_configured()
+
+    return {
+        "provider": "cohere" if configured else "demo",
+        "demo_mode": not configured,
+        "configured": configured,
+        "message": (
+            "AI assistant is ready (powered by Cohere)"
+            if configured
+            else "Demo mode active. Set COHERE_API_KEY environment variable for full AI features."
+        ),
+    }
+
+
 @router.post("/chat", response_model=AIResponse)
 async def chat(
     request: AIRequest,
@@ -67,35 +139,67 @@ async def chat(
     """
     Process a natural language message and return AI response.
 
-    FR-301: Accept natural language input for task management
-    FR-302: Process through AI model with task context
-    FR-303: Return structured response with intent and action
-    NFR-301: Respond within 3 seconds (10s timeout on API)
-    SEC-301: Require authentication for all AI endpoints
+    Supported intents: ADD, LIST, COMPLETE, DELETE, HELP
+
+    SECURITY:
+    - Input validated and sanitized
+    - Max input length enforced
+    - No raw model output exposed
+    - API key never logged or exposed
+
+    When AI is not configured, returns demo mode responses that still work.
     """
-    # Check if AI is configured
-    if not settings.anthropic_api_key:
-        logger.error("Anthropic API key not configured")
+    user_id = str(current_user.id)
+
+    # SECURITY: Validate and sanitize input
+    try:
+        sanitized_message = validate_input(request.message)
+    except InputValidationError as e:
         raise HTTPException(
-            status_code=503,
+            status_code=400,
             detail={
                 "error": {
-                    "code": "SERVICE_UNAVAILABLE",
-                    "message": "AI assistant is not configured. Please set ANTHROPIC_API_KEY.",
+                    "code": "VALIDATION_ERROR",
+                    "message": e.message,
                     "details": [],
                 }
             },
         )
 
-    user_id = str(current_user.id)
+    # Check if AI is configured - if not, use demo mode
+    if not is_ai_configured():
+        logger.info(f"Demo mode active for user {user_id}")
+        # Return demo mode response that still provides basic functionality
+        demo_response = get_demo_response(sanitized_message)
+
+        # If demo response has an API call action, execute it
+        if demo_response.action.type.value == "api_call":
+            try:
+                # Create intent router for demo execution
+                router_instance = IntentRouter(
+                    ai_client=None,  # No AI client in demo mode
+                    db=db,
+                    user_id=current_user.id,
+                )
+
+                # Execute the action if it's a valid task operation
+                result = await router_instance.execute_action(demo_response)
+                await db.commit()
+                return result
+            except Exception as e:
+                logger.warning(f"Demo mode execution failed: {e}")
+                await db.rollback()
+
+        return demo_response
 
     try:
         # Get any pending confirmation for this user
         pending_confirmation = ConversationState.get_pending(user_id)
 
-        # Create the AI client
+        # Create the AI client (using Cohere)
+        # SECURITY: API key passed from env-loaded config, never hardcoded
         ai_client = AIClient(
-            api_key=settings.anthropic_api_key,
+            api_key=settings.cohere_api_key,
             model=settings.ai_model,
             timeout=settings.ai_timeout_seconds,
         )
@@ -109,7 +213,7 @@ async def chat(
 
         # Process the message
         response = await router_instance.process_message(
-            message=request.message,
+            message=sanitized_message,
             pending_confirmation=pending_confirmation,
         )
 
@@ -141,8 +245,13 @@ async def chat(
 
     except AITimeoutError:
         logger.warning(f"AI timeout for user {user_id}")
-        # Return a graceful timeout response instead of error
-        return ERROR_RESPONSES["service_unavailable"]
+        # Return a graceful fallback response instead of error
+        return AIResponse(
+            intent="INFO",
+            message="The AI is taking longer than expected. Please try again or use demo mode commands like 'show my tasks' or 'add task [name]'.",
+            action={"type": "none"},
+            data=None
+        )
 
     except AIRateLimitError:
         logger.warning(f"AI rate limited for user {user_id}")
@@ -151,7 +260,7 @@ async def chat(
             detail={
                 "error": {
                     "code": "RATE_LIMITED",
-                    "message": "Too many requests. Please wait a moment.",
+                    "message": "Too many requests. Please wait a moment before trying again.",
                     "details": [],
                 }
             },
@@ -159,11 +268,18 @@ async def chat(
 
     except AIError as e:
         logger.error(f"AI error for user {user_id}: {e.message}")
-        return map_exception_to_response(e)
+        # SECURITY: Don't expose raw error details to client
+        return AIResponse(
+            intent="ERROR",
+            message="I encountered an issue processing your request. Please try again.",
+            action={"type": "none"},
+            data=None
+        )
 
     except Exception as e:
-        logger.exception(f"Unexpected error in AI chat for user {user_id}: {e}")
+        logger.exception(f"Unexpected error in AI chat for user {user_id}")
         await db.rollback()
+        # SECURITY: Don't expose internal error details
         raise HTTPException(
             status_code=500,
             detail={
@@ -174,21 +290,3 @@ async def chat(
                 }
             },
         )
-
-
-@router.get("/status")
-async def ai_status(
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Check AI assistant availability.
-
-    Returns whether the AI service is configured and available.
-    """
-    is_configured = bool(settings.anthropic_api_key)
-
-    return {
-        "available": is_configured,
-        "model": settings.ai_model if is_configured else None,
-        "message": "AI assistant is ready" if is_configured else "AI assistant is not configured",
-    }

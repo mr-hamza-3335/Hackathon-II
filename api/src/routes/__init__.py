@@ -1,13 +1,13 @@
 """
 Routes module with health check and router configuration.
 T020: Create health check endpoint GET /api/v1/health
-Phase 3: Added AI assistant routes
+Phase III: Cohere AI chat endpoint with MCP-style tools
 """
 from fastapi import APIRouter
 
 from .auth import router as auth_router
 from .tasks import router as tasks_router
-from .ai import router as ai_router
+from .chat import router as chat_router
 
 # Main API router with v1 prefix (FR-032)
 api_router = APIRouter(prefix="/api/v1")
@@ -21,6 +21,9 @@ async def health_check():
 # Include sub-routers
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
-api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
 
-__all__ = ["api_router"]
+# Phase III: Chat router (without v1 prefix per spec - POST /api/{user_id}/chat)
+# This is included separately for direct access at /api/{user_id}/chat
+chat_api_router = chat_router
+
+__all__ = ["api_router", "chat_api_router"]

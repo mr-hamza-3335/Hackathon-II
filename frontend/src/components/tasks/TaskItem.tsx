@@ -44,7 +44,7 @@ export default function TaskItem({ task, onUpdate, onDelete, index = 0 }: TaskIt
       const updatedTask = await api.post<Task>(endpoint);
       onUpdate(updatedTask);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status !== 401) {
         setError(err.message);
       }
     } finally {
@@ -75,7 +75,7 @@ export default function TaskItem({ task, onUpdate, onDelete, index = 0 }: TaskIt
       onUpdate(updatedTask);
       setIsEditing(false);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status !== 401) {
         setError(err.message);
       }
     } finally {
@@ -99,7 +99,7 @@ export default function TaskItem({ task, onUpdate, onDelete, index = 0 }: TaskIt
       await api.delete(`/api/v1/tasks/${task.id}`);
       onDelete(task.id);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status !== 401) {
         setError(err.message);
       }
     } finally {

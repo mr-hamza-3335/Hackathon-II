@@ -1,10 +1,13 @@
 /**
  * Premium protected layout with full-screen dashboard design.
  * PakAura Design System
+ *
+ * SECURITY: Handles auth errors globally with auto-recovery.
+ * User is never stuck in broken auth state.
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +15,7 @@ import { LogOut, Loader2, LayoutDashboard, Bot } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { getCurrentUser, logout } from '@/lib';
+import { getCurrentUser, logout, onAuthError } from '@/lib';
 import { User } from '@/types';
 
 const navItems = [
@@ -31,6 +34,22 @@ export default function ProtectedLayout({
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  /**
+   * Handle auth error - clear state and redirect to login.
+   * This provides auto-recovery from invalid/expired tokens.
+   */
+  const handleAuthError = useCallback(() => {
+    setUser(null);
+    setLoading(false);
+    router.push('/login');
+  }, [router]);
+
+  // Subscribe to global auth errors for auto-recovery
+  useEffect(() => {
+    const unsubscribe = onAuthError(handleAuthError);
+    return unsubscribe;
+  }, [handleAuthError]);
+
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -41,6 +60,7 @@ export default function ProtectedLayout({
         }
         setUser(currentUser);
       } catch (error) {
+        // Auth error handler will redirect if it's a 401
         router.push('/login');
       } finally {
         setLoading(false);
@@ -53,8 +73,10 @@ export default function ProtectedLayout({
     setLoggingOut(true);
     try {
       await logout();
-      router.push('/login');
     } catch (error) {
+      // Ignore errors during logout
+    } finally {
+      setUser(null);
       router.push('/login');
     }
   };

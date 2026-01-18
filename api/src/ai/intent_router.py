@@ -60,7 +60,7 @@ class IntentRouter:
 
     def __init__(
         self,
-        ai_client: AIClient,
+        ai_client: Optional[AIClient],
         db: AsyncSession,
         user_id: UUID
     ):
@@ -68,7 +68,7 @@ class IntentRouter:
         Initialize the intent router.
 
         Args:
-            ai_client: The AI client for model communication
+            ai_client: The AI client for model communication (None for demo mode)
             db: Database session for task operations
             user_id: Authenticated user's ID
         """
@@ -77,6 +77,7 @@ class IntentRouter:
         self.user_id = user_id
         self.task_executor = TaskExecutor(db, user_id)
         self.sanitizer = get_sanitizer()
+        self.demo_mode = ai_client is None
 
     async def process_message(
         self,
@@ -163,6 +164,11 @@ class IntentRouter:
         Returns:
             AIResponse from the model or fallback
         """
+        # If in demo mode (no AI client), use fallback
+        if self.demo_mode or self.ai_client is None:
+            logger.info("Demo mode: using fallback response")
+            return get_fallback_response(message)
+
         try:
             return await self.ai_client.chat(
                 user_message=message,
@@ -316,6 +322,22 @@ class IntentRouter:
         return fallback
 
 
+    async def execute_action(self, ai_response: AIResponse) -> AIResponse:
+        """
+        Execute an action from an AI response (for demo mode).
+
+        This method allows direct execution of actions without
+        going through the full AI processing pipeline.
+
+        Args:
+            ai_response: The AI response with action to execute
+
+        Returns:
+            AIResponse with execution result
+        """
+        return await self._route_intent(ai_response)
+
+
 async def create_router(
     api_key: str,
     db: AsyncSession,
@@ -327,7 +349,7 @@ async def create_router(
     Factory function to create an IntentRouter.
 
     Args:
-        api_key: Anthropic API key
+        api_key: Cohere API key
         db: Database session
         user_id: User's ID
         model: Optional model override

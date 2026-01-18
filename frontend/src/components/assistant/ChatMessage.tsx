@@ -6,8 +6,6 @@
 
 import { motion } from 'framer-motion';
 import {
-  User,
-  Bot,
   Plus,
   CheckCircle,
   Circle,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { ChatMessage as ChatMessageType, Intent, AITaskData } from '@/types';
 import { formatMessageTime, getIntentColor } from '@/lib';
+import { BotAvatar, UserAvatar } from './AssistantIcon';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -57,19 +56,9 @@ export function ChatMessage({ message, showTimestamp = true }: ChatMessageProps)
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 500 }}
-        className={`
-          flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg
-          ${isUser
-            ? 'bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-500'
-            : 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500'
-          }
-        `}
+        className="flex-shrink-0"
       >
-        {isUser ? (
-          <User className="w-5 h-5 text-white" />
-        ) : (
-          <Bot className="w-5 h-5 text-white" />
-        )}
+        {isUser ? <UserAvatar /> : <BotAvatar />}
       </motion.div>
 
       {/* Message bubble */}

@@ -116,15 +116,15 @@ async def login(
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(
-    response: Response,
-    current_user: User = Depends(get_current_user),
-):
+async def logout(response: Response):
     """
     Log out the current user.
 
     FR-007: Allow users to log out, invalidating their session
     FR-031: Clear authentication cookies on logout with immediate effect
+
+    Note: Does not require authentication so logout works even with
+    expired or invalid tokens (e.g., after JWT secret rotation).
     """
     clear_auth_cookie(response)
     return {"message": "Logged out successfully"}

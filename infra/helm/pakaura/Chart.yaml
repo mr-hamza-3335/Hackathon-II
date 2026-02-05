@@ -1,0 +1,17 @@
+apiVersion: v2
+name: pakaura
+description: AI-powered Todo Chatbot - Cloud Native Deployment
+type: application
+version: 4.0.0
+appVersion: "4.0.0"
+keywords:
+  - todo
+  - chatbot
+  - ai
+  - kubernetes
+  - fastapi
+  - nextjs
+  - cohere
+maintainers:
+  - name: PakAura Team
+    email: team@pakaura.local

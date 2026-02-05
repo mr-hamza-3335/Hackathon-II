@@ -1,0 +1,34 @@
+=======================================================
+  PakAura AI Todo Chatbot - Deployment Complete!
+=======================================================
+
+Your application has been deployed successfully.
+
+1. Get the application URL:
+{{- if eq .Values.frontend.service.type "NodePort" }}
+   Access via NodePort:
+   $ minikube service frontend -n {{ .Values.global.namespace }} --url
+
+   Or directly:
+   http://$(minikube ip):{{ .Values.frontend.service.nodePort }}
+{{- else }}
+   $ kubectl port-forward svc/frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }} -n {{ .Values.global.namespace }}
+   Then access: http://localhost:{{ .Values.frontend.service.port }}
+{{- end }}
+
+2. Check pod status:
+   $ kubectl get pods -n {{ .Values.global.namespace }}
+
+3. View logs:
+   $ kubectl logs -f -l app=api -n {{ .Values.global.namespace }}
+   $ kubectl logs -f -l app=frontend -n {{ .Values.global.namespace }}
+
+4. AI Chatbot Features:
+   - "Add a task to buy groceries"
+   - "Show my tasks"
+   - "Complete the grocery task"
+   - "Delete my completed tasks"
+
+=======================================================
+  Powered by Claude Code - AI-Assisted DevOps
+=======================================================

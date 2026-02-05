@@ -1,0 +1,49 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: api
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.imageTag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.api.service.port }}
+              name: http
+          env:
+            - name: FRONTEND_URL
+              value: {{ .Values.api.env.frontendUrl | default (printf "http://frontend.%s.svc.cluster.local:%d" .Values.global.namespace (.Values.frontend.service.port | int)) | quote }}
+          envFrom:
+            - configMapRef:
+                name: pakaura-config
+            - secretRef:
+                name: pakaura-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: {{ .Values.api.service.port }}
+            initialDelaySeconds: {{ .Values.api.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: {{ .Values.api.service.port }}
+            initialDelaySeconds: {{ .Values.api.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.liveness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+{{- end }}

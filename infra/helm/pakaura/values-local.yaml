@@ -1,0 +1,44 @@
+# Local deployment values for Minikube (Docker driver on Windows)
+# Access pattern: kubectl port-forward (localhost:3000 / localhost:8000)
+global:
+  namespace: pakaura
+  imageTag: "latest"
+
+frontend:
+  image:
+    pullPolicy: Never  # Use local images only
+  env:
+    # Frontend falls back to http://localhost:8000 when NEXT_PUBLIC_API_URL
+    # is not set at build time, which matches port-forward access.
+    apiUrl: "http://localhost:8000"
+  probes:
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 3
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 3
+
+api:
+  image:
+    pullPolicy: Never  # Use local images only
+  env:
+    # CORS origin must match the URL the browser uses to access the frontend
+    frontendUrl: "http://localhost:3000"
+  service:
+    type: ClusterIP  # Access via port-forward, not NodePort
+
+# Local PostgreSQL for Phase IV
+postgres:
+  enabled: true
+  user: "pakaura"
+  password: "local_dev_password"
+  database: "pakaura_db"
+
+# Secrets for local development
+secrets:
+  databaseUrl: "postgresql+asyncpg://pakaura:local_dev_password@postgres.pakaura.svc.cluster.local:5432/pakaura_db"
+  jwtSecret: "local-dev-secret-key-change-in-production-min-32-chars-long"
+  cohereApiKey: ""  # Empty for demo mode

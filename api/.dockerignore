@@ -1,0 +1,26 @@
+# Virtual environments
+myenv/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Development
+.git/
+.gitignore
+*.md
+!README.md
+.env*
+.vscode/
+.idea/
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,26 +1,25 @@
 <!--
   SYNC IMPACT REPORT
   ==================
-  Version change: 0.0.0 → 1.0.0 (MAJOR - initial constitution ratification)
+  Version change: 1.0.0 → 1.0.1 (PATCH - Phase III clarification)
 
-  Modified principles: N/A (new constitution)
+  Modified principles:
+  - Phase III AI Behavior Rules: Changed "MCP tools" to "REST API endpoints"
+  - Updated MCP Tools list to REST API Endpoints with specific endpoint paths
 
-  Added sections:
-  - Core Principles (6 global rules)
-  - Phase I Constitution (Console Todo)
-  - Phase II Constitution (Full-Stack Web)
-  - Phase III Constitution (AI Chatbot)
-  - Phase IV Constitution (Local K8s)
-  - Phase V Constitution (Cloud Deployment)
-  - Submission & Evaluation Rules
-  - Final Authority
+  Rationale:
+  - Aligns constitution with actual implementation approach in spec.md and plan.md
+  - Clarifies that AI must use existing Phase II REST endpoints, not MCP tools
+  - Maintains core principle: AI must NOT directly access database
 
-  Removed sections: N/A (new constitution)
+  Added sections: N/A
+
+  Removed sections: N/A
 
   Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ (compatible - Constitution Check section exists)
-  - .specify/templates/spec-template.md ✅ (compatible - no conflicts)
-  - .specify/templates/tasks-template.md ✅ (compatible - structure supports phased approach)
+  - .specify/templates/plan-template.md ✅ (no impact)
+  - .specify/templates/spec-template.md ✅ (no impact)
+  - .specify/templates/tasks-template.md ✅ (no impact)
 
   Follow-up TODOs: None
 -->
@@ -125,10 +124,10 @@ Manual coding is strictly prohibited.
 
 **AI Behavior Rules**:
 - The chatbot MUST interpret natural language commands.
-- The chatbot MUST call MCP tools to manage tasks.
+- The chatbot MUST call existing Phase II REST API endpoints to manage tasks.
 - The chatbot MUST NOT directly manipulate the database.
 
-**MCP Tools**: add_task, list_tasks, update_task, delete_task, complete_task
+**REST API Endpoints**: POST /api/v1/tasks, GET /api/v1/tasks, PATCH /api/v1/tasks/{id}, DELETE /api/v1/tasks/{id}, POST /api/v1/tasks/{id}/complete, POST /api/v1/tasks/{id}/uncomplete
 
 **Stateless Design**:
 - Each request MUST be handled independently.
@@ -197,4 +196,4 @@ This hackathon evaluates:
 
 Clear specs produce clean systems.
 
-**Version**: 1.0.0 | **Ratified**: 2025-01-07 | **Last Amended**: 2025-01-07
+**Version**: 1.0.1 | **Ratified**: 2025-01-07 | **Last Amended**: 2026-02-01

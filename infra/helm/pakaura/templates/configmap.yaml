@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pakaura-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+data:
+  # JWT Configuration
+  JWT_ALGORITHM: {{ .Values.api.env.jwtAlgorithm | quote }}
+  JWT_EXPIRATION_HOURS: {{ .Values.api.env.jwtExpirationHours | quote }}
+
+  # AI Configuration
+  AI_MODEL: {{ .Values.api.env.aiModel | quote }}
+  AI_TEMPERATURE: {{ .Values.api.env.aiTemperature | quote }}
+  AI_MAX_TOKENS: {{ .Values.api.env.aiMaxTokens | quote }}
+  AI_TIMEOUT_SECONDS: {{ .Values.api.env.aiTimeoutSeconds | quote }}
+  AI_RATE_LIMIT_PER_MINUTE: {{ .Values.api.env.aiRateLimitPerMinute | quote }}
+  AI_MAX_INPUT_LENGTH: "10000"
+
+  # Cookie Configuration
+  COOKIE_SECURE: "false"
+  COOKIE_SAMESITE: "lax"
+  COOKIE_HTTPONLY: "true"
+
+  # Environment
+  ENVIRONMENT: {{ .Values.api.env.environment | quote }}
+  DEBUG: {{ .Values.api.env.debug | quote }}

@@ -1,0 +1,76 @@
+# Default values for pakaura Helm chart
+
+# Global settings
+global:
+  namespace: pakaura
+  imageTag: "4.0.0"
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: pakaura-frontend
+    tag: ""  # Defaults to global.imageTag
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30300
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+
+# API configuration
+api:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: pakaura-api
+    tag: ""  # Defaults to global.imageTag
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+  service:
+    type: ClusterIP
+    port: 8000
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+  env:
+    frontendUrl: ""  # Override for CORS origin; defaults to internal K8s DNS
+    jwtAlgorithm: "HS256"
+    jwtExpirationHours: "24"
+    aiModel: "command-a-03-2025"
+    aiTemperature: "0.3"
+    aiMaxTokens: "300"
+    aiTimeoutSeconds: "30"
+    aiRateLimitPerMinute: "30"
+    environment: "production"
+    debug: "false"
+
+# Secrets (MUST be set via --set or external management)
+secrets:
+  databaseUrl: ""     # REQUIRED - Neon PostgreSQL URL
+  jwtSecret: ""       # REQUIRED
+  cohereApiKey: ""    # Optional - empty enables demo mode

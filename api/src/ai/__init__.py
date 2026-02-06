@@ -32,6 +32,8 @@ from .errors import (
     AIParseError,
     create_error_response,
 )
+from .client import AIClient
+from .intent_router import IntentRouter
 from .agent import CohereTaskAgent, TaskManagerAgent, SimplifiedTaskAgent, AgentResult, get_agent
 
 __all__ = [
@@ -46,6 +48,10 @@ __all__ = [
     "SYSTEM_PROMPT",
     "USER_PROMPT_TEMPLATE",
     "build_user_prompt",
+    # Client
+    "AIClient",
+    # Router
+    "IntentRouter",
     # Sanitizer
     "InputSanitizer",
     # Errors

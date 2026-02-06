@@ -20,9 +20,9 @@ settings = get_settings()
 
 # Create FastAPI application
 app = FastAPI(
-    title="Todo API",
-    description="Phase II Full-Stack Todo Application API",
-    version="1.0.0",
+    title="PakAura API",
+    description="AI-Powered Task Management API with Cohere Integration",
+    version="2.0.0",
     docs_url="/api/docs" if settings.debug else None,
     redoc_url="/api/redoc" if settings.debug else None,
 )

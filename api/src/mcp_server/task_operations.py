@@ -214,6 +214,91 @@ class TaskOperations:
         finally:
             await conn.close()
 
+    async def uncomplete_task(self, user_id: str, task_id: str) -> dict:
+        """
+        Mark a task as incomplete (uncomplete).
+
+        Args:
+            user_id: UUID of the user (for authorization)
+            task_id: UUID of the task
+
+        Returns:
+            dict with success status and updated task data
+        """
+        conn = await self.get_connection()
+        try:
+            row = await conn.fetchrow(
+                """
+                UPDATE tasks
+                SET completed = false, updated_at = now()
+                WHERE id = $1 AND user_id = $2
+                RETURNING id, title, completed, updated_at
+                """,
+                UUID(task_id),
+                UUID(user_id)
+            )
+
+            if not row:
+                return {
+                    "success": False,
+                    "error": "Task not found or you don't have permission to update it"
+                }
+
+            return {
+                "success": True,
+                "task": {
+                    "id": str(row["id"]),
+                    "title": row["title"],
+                    "completed": row["completed"],
+                    "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
+                }
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        finally:
+            await conn.close()
+
+    async def clear_completed(self, user_id: str) -> dict:
+        """
+        Delete all completed tasks for a user.
+
+        Args:
+            user_id: UUID of the user
+
+        Returns:
+            dict with success status and count of deleted tasks
+        """
+        conn = await self.get_connection()
+        try:
+            # Get count of completed tasks before deletion
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND completed = true",
+                UUID(user_id)
+            )
+
+            if count == 0:
+                return {
+                    "success": True,
+                    "deleted_count": 0,
+                    "message": "No completed tasks to clear"
+                }
+
+            # Delete all completed tasks
+            await conn.execute(
+                "DELETE FROM tasks WHERE user_id = $1 AND completed = true",
+                UUID(user_id)
+            )
+
+            return {
+                "success": True,
+                "deleted_count": count,
+                "message": f"Cleared {count} completed task{'s' if count != 1 else ''}"
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        finally:
+            await conn.close()
+
     async def update_task(self, user_id: str, task_id: str, title: str) -> dict:
         """
         Update a task's title.

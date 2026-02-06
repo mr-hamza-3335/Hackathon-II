@@ -111,8 +111,8 @@ export function ChatKitWrapper({ userId, className = '' }: ChatKitWrapperProps) 
   }, [messages, scrollToBottom]);
 
   // Handle sending a message
-  const handleSend = async () => {
-    const content = inputValue.trim();
+  const handleSend = async (directContent?: string) => {
+    const content = (directContent || inputValue).trim();
     if (!content || isLoading) return;
 
     setError(null);
@@ -195,10 +195,7 @@ export function ChatKitWrapper({ userId, className = '' }: ChatKitWrapperProps) 
 
   // Handle quick action
   const handleQuickAction = (action: string) => {
-    setInputValue(action);
-    setTimeout(() => {
-      handleSend();
-    }, 100);
+    handleSend(action);
   };
 
   // Clear chat
@@ -237,7 +234,7 @@ export function ChatKitWrapper({ userId, className = '' }: ChatKitWrapperProps) 
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 bg-clip-text text-transparent">
-                  AI Task Assistant
+                  PakAura Assistant
                 </h2>
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -245,11 +242,11 @@ export function ChatKitWrapper({ userId, className = '' }: ChatKitWrapperProps) 
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium"
                 >
                   <Zap className="w-3 h-3" />
-                  <span>OpenAI GPT-4o</span>
+                  <span>Cohere AI</span>
                 </motion.div>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Powered by OpenAI Agents SDK + MCP
+                AI-powered task management assistant
               </p>
             </div>
           </div>
@@ -340,7 +337,7 @@ export function ChatKitWrapper({ userId, className = '' }: ChatKitWrapperProps) 
             />
           </div>
           <button
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={!inputValue.trim() || isLoading}
             className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
@@ -464,13 +461,13 @@ function EmptyState({ onQuickAction }: EmptyStateProps) {
       </motion.div>
 
       <h3 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-400 dark:to-cyan-400 bg-clip-text text-transparent mb-3">
-        Hi! I'm your AI Task Assistant
+        Hi! I'm PakAura Assistant
       </h3>
       <p className="text-slate-500 dark:text-slate-400 max-w-md mb-2">
         I can help you manage your tasks with natural language.
       </p>
       <p className="text-emerald-600 dark:text-emerald-400 text-sm mb-6">
-        Powered by OpenAI GPT-4o + MCP Tools
+        Powered by Cohere AI (Free Tier)
       </p>
 
       {/* Quick actions */}

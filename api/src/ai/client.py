@@ -284,7 +284,7 @@ def get_fallback_response(user_message: str) -> AIResponse:
     if any(word in message_lower for word in ["help", "what can", "how do"]):
         return AIResponse(
             intent=Intent.INFO,
-            message="I'm PakAura Assistant. I can help you manage tasks. Try:\n• 'Show my tasks'\n• 'Add task: [description]'\n• 'Complete [task name]'\n• 'Delete [task name]'",
+            message="I'm PakAura Assistant. I can help you manage tasks. Try:\n• 'Show my tasks'\n• 'Add task [name]'\n• 'Complete [task name]'\n• 'Uncomplete [task name]'\n• 'Delete [task name]'\n• 'Clear completed tasks'",
             action=AIAction(type=ActionType.NONE),
             data=None
         )
@@ -292,7 +292,7 @@ def get_fallback_response(user_message: str) -> AIResponse:
     # Default clarification
     return AIResponse(
         intent=Intent.CLARIFY,
-        message="I'm having trouble understanding. Could you try rephrasing? You can say things like 'Show my tasks' or 'Add task: buy groceries'.",
+        message="I'm having trouble understanding. Could you try rephrasing? You can say things like 'Show my tasks' or 'Add task buy groceries'.",
         action=AIAction(type=ActionType.NONE),
         data=None
     )
@@ -345,10 +345,31 @@ def get_demo_response(user_message: str) -> AIResponse:
                 data=None
             )
 
+    # Clear completed tasks
+    if any(pattern in message_lower for pattern in ["clear completed", "remove completed", "delete completed", "clear done"]):
+        return AIResponse(
+            intent=Intent.INFO,
+            message="🧹 I'll clear your completed tasks!",
+            action=AIAction(
+                type=ActionType.API_CALL,
+                endpoint="/tasks/clear-completed",
+                method="DELETE"
+            ),
+            data={"action": "clear_completed"}
+        )
+
+    if any(word in message_lower for word in ["uncomplete", "undo complete", "mark incomplete", "uncheck", "reopen"]):
+        return AIResponse(
+            intent=Intent.INFO,
+            message="↩️ To uncomplete a task, please specify which task. Try: 'uncomplete [task name]'",
+            action=AIAction(type=ActionType.NONE),
+            data=None
+        )
+
     if any(word in message_lower for word in ["complete", "done", "finish", "mark"]):
         return AIResponse(
             intent=Intent.INFO,
-            message="✨ To complete a task in Demo Mode, please use the checkboxes in your task list. Enable AI with a Cohere API key for voice commands!",
+            message="✨ To complete a task, please specify which task. Try: 'complete [task name]'",
             action=AIAction(type=ActionType.NONE),
             data=None
         )
@@ -356,7 +377,7 @@ def get_demo_response(user_message: str) -> AIResponse:
     if any(word in message_lower for word in ["delete", "remove"]):
         return AIResponse(
             intent=Intent.INFO,
-            message="🗑️ To delete a task in Demo Mode, please use the task options in your task list. Enable AI with a Cohere API key for voice commands!",
+            message="🗑️ To delete a task, please specify which task. Try: 'delete [task name]'",
             action=AIAction(type=ActionType.NONE),
             data=None
         )
@@ -364,7 +385,7 @@ def get_demo_response(user_message: str) -> AIResponse:
     if any(word in message_lower for word in ["help", "what can", "how do", "hello", "hi"]):
         return AIResponse(
             intent=Intent.INFO,
-            message="👋 Hi! I'm PakAura Assistant running in Demo Mode.\n\n🎯 What I can do:\n• 'Show my tasks' - List all your tasks\n• 'Add task: [name]' - Create a new task\n\n💡 For full AI capabilities (complete, update, delete by voice), add your free Cohere API key!",
+            message="👋 Hi! I'm PakAura Assistant.\n\n🎯 What I can do:\n• 'Show my tasks' - List all your tasks\n• 'Add task [name]' - Create a new task\n• 'Complete [task name]' - Mark task done\n• 'Uncomplete [task name]' - Mark task undone\n• 'Delete [task name]' - Remove a task\n• 'Clear completed tasks' - Remove all done tasks\n• 'Help' - Show this help",
             action=AIAction(type=ActionType.NONE),
             data=None
         )
@@ -372,7 +393,7 @@ def get_demo_response(user_message: str) -> AIResponse:
     # Default demo response
     return AIResponse(
         intent=Intent.INFO,
-        message="🤖 Demo Mode Active! Try saying:\n• 'Show my tasks'\n• 'Add task buy groceries'\n• 'Help'\n\nFor full AI features, configure your free Cohere API key.",
+        message="🤖 Try saying:\n• 'Show my tasks'\n• 'Add task buy groceries'\n• 'Complete [task name]'\n• 'Delete [task name]'\n• 'Help'",
         action=AIAction(type=ActionType.NONE),
         data=None
     )

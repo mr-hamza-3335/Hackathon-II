@@ -166,11 +166,25 @@ class CohereTaskAgent:
                 filter_type = "incomplete"
             return "list_tasks", {"filter": filter_type}
 
+        # Clear completed tasks detection (check before delete/complete)
+        clear_patterns = ["clear completed", "remove completed", "delete completed",
+                         "clear done", "remove done", "delete done", "clean up"]
+        if any(pattern in msg_lower for pattern in clear_patterns):
+            return "clear_completed", {}
+
         # Delete task detection (check before complete to handle "remove" properly)
         delete_patterns = ["delete", "remove", "get rid of", "erase", "trash"]
         if any(pattern in msg_lower for pattern in delete_patterns):
             task_ref = self._extract_task_reference(message)
             return "delete_task", {"task_ref": task_ref}
+
+        # Uncomplete task detection (check before complete)
+        uncomplete_patterns = ["uncomplete", "mark as incomplete", "mark incomplete",
+                              "mark as not done", "undo complete", "uncheck",
+                              "mark as undone", "reopen"]
+        if any(pattern in msg_lower for pattern in uncomplete_patterns):
+            task_ref = self._extract_task_reference(message)
+            return "uncomplete_task", {"task_ref": task_ref}
 
         # Complete task detection
         complete_patterns = ["complete", "mark as done", "finish", "done with",
@@ -392,13 +406,15 @@ class CohereTaskAgent:
         """Generate demo mode responses."""
         responses = {
             "greeting": "Hello! I'm PakAura Assistant running in Demo Mode. I can help you manage tasks. Try 'show my tasks' or 'add task buy groceries'!",
-            "help": "I'm your task management assistant! In Demo Mode, I can:\n• Show your tasks: 'show my tasks'\n• Add tasks: 'add task [name]'\n\nFor full features (complete, delete, update), please configure your Cohere API key.",
+            "help": "I'm your task management assistant! Here's what I can do:\n• **Show tasks**: 'show my tasks'\n• **Add tasks**: 'add task [name]'\n• **Complete tasks**: 'complete [task name]'\n• **Uncomplete tasks**: 'uncomplete [task name]'\n• **Delete tasks**: 'delete [task name]'\n• **Clear completed**: 'clear completed tasks'\n\nJust tell me what you'd like to do!",
             "add_task": f"I'll add '{data.get('title', 'your task')}' to your list!",
             "list_tasks": "Let me show you your tasks...",
-            "complete_task": "To complete tasks in Demo Mode, please use the task checkboxes. Add a Cohere API key for voice commands!",
-            "delete_task": "To delete tasks in Demo Mode, please use the task list UI. Add a Cohere API key for voice commands!",
+            "complete_task": f"I'll mark that task as complete!",
+            "uncomplete_task": f"I'll mark that task as incomplete!",
+            "delete_task": f"I'll delete that task for you!",
+            "clear_completed": "I'll clear all your completed tasks!",
             "update_task": "To update tasks in Demo Mode, please use the task list UI. Add a Cohere API key for voice commands!",
-            "unknown": "I'm not sure what you'd like to do. Try:\n• 'show my tasks'\n• 'add task [name]'\n• 'help'"
+            "unknown": "I'm not sure what you'd like to do. Try:\n• 'show my tasks'\n• 'add task [name]'\n• 'complete [task name]'\n• 'delete [task name]'\n• 'help'"
         }
 
         return AgentResult(
@@ -588,6 +604,65 @@ class CohereTaskAgent:
             else:
                 return AgentResult(
                     response=f"Sorry, I couldn't delete that task: {result.get('error', 'Unknown error')}",
+                    tool_calls=tool_calls
+                )
+
+        # Handle uncomplete task
+        if intent == "uncomplete_task":
+            task_ref = data.get("task_ref", "").strip()
+            if not task_ref:
+                return AgentResult(
+                    response="Which task would you like to mark as incomplete?",
+                    tool_calls=[]
+                )
+
+            # Find the task
+            task = await self._find_task_by_reference(user_id, task_ref)
+            if not task:
+                result = await self.task_ops.list_tasks(user_id, "completed")
+                tasks = result.get("tasks", [])
+                if tasks:
+                    task_list = self._format_task_list(tasks)
+                    return AgentResult(
+                        response=f"I couldn't find a task matching '{task_ref}'. Here are your completed tasks:\n\n{task_list}\n\nWhich one would you like to uncomplete?",
+                        tool_calls=[]
+                    )
+                return AgentResult(
+                    response=f"I couldn't find a task matching '{task_ref}'. You don't have any completed tasks!",
+                    tool_calls=[]
+                )
+
+            result = await self.task_ops.uncomplete_task(user_id, task["id"])
+            tool_calls.append({"tool": "uncomplete_task", "result": result})
+
+            if result.get("success"):
+                response = f"Done! I've marked '{task['title']}' as incomplete. Back on the to-do list!"
+                return AgentResult(response=response, tool_calls=tool_calls)
+            else:
+                return AgentResult(
+                    response=f"Sorry, I couldn't uncomplete that task: {result.get('error', 'Unknown error')}",
+                    tool_calls=tool_calls
+                )
+
+        # Handle clear completed tasks
+        if intent == "clear_completed":
+            result = await self.task_ops.clear_completed(user_id)
+            tool_calls.append({"tool": "clear_completed", "result": result})
+
+            if result.get("success"):
+                count = result.get("deleted_count", 0)
+                if count == 0:
+                    return AgentResult(
+                        response="You don't have any completed tasks to clear!",
+                        tool_calls=tool_calls
+                    )
+                return AgentResult(
+                    response=f"Done! I've cleared {count} completed task{'s' if count != 1 else ''}. Your list is looking cleaner!",
+                    tool_calls=tool_calls
+                )
+            else:
+                return AgentResult(
+                    response=f"Sorry, I couldn't clear completed tasks: {result.get('error', 'Unknown error')}",
                     tool_calls=tool_calls
                 )
 

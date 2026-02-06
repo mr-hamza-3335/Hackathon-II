@@ -24,6 +24,8 @@ frontend:
     type: NodePort
     port: 3000
     nodePort: 30300
+  env:
+    apiUrl: ""  # Override for NEXT_PUBLIC_API_URL; defaults to internal K8s DNS
   probes:
     readiness:
       initialDelaySeconds: 10
@@ -68,6 +70,13 @@ api:
     aiRateLimitPerMinute: "30"
     environment: "production"
     debug: "false"
+
+# PostgreSQL (disabled by default - use external DB in production)
+postgres:
+  enabled: false
+  user: "pakaura"
+  password: ""
+  database: "pakaura_db"
 
 # Secrets (MUST be set via --set or external management)
 secrets:

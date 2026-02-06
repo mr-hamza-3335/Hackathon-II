@@ -17,6 +17,16 @@ spec:
       labels:
         app: api
     spec:
+      initContainers:
+        - name: run-migrations
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.imageTag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: pakaura-config
+            - secretRef:
+                name: pakaura-secrets
       containers:
         - name: api
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.imageTag }}"

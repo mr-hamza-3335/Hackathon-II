@@ -1,0 +1,87 @@
+================================================================================
+                         PakAura - Changelog
+================================================================================
+
+VERSION 2.0.0 - Final Hackathon Submission (2026-02-05)
+================================================================================
+
+MAJOR CHANGES:
+- Complete AI chatbot intelligence upgrade
+- Full natural language task management
+- Kubernetes deployment ready
+- Production-quality error handling
+
+NEW FEATURES:
+- Added "uncomplete task" chatbot command
+- Added "clear completed tasks" chatbot command
+- Added AI status endpoint (/api/v1/ai/status)
+- Added persistent chat history with PostgreSQL
+- Added MCP-style tool execution in AI agent
+- Added tool action display in chat UI
+- Added quick action buttons for common commands
+- Added demo mode (works without Cohere API key)
+- Added general conversation support via Cohere AI
+
+BUG FIXES:
+- Fixed AI router not mounted (missing /api/v1/ai/* endpoints)
+- Fixed ChatKitWrapper showing "OpenAI GPT-4o" instead of "Cohere AI"
+- Fixed quick action race condition in chat UI
+- Fixed missing IntentRouter and AIClient exports from ai module
+- Fixed logout endpoint to not require authentication
+- Fixed CORS issues for cookie-based authentication
+- Fixed SSL parameter compatibility with asyncpg
+
+IMPROVEMENTS:
+- Updated app title from "Todo API" to "PakAura API"
+- Improved demo mode to support all task operations
+- Improved fallback responses with complete command help
+- Added uncomplete_task to MCP task operations
+- Added clear_completed to MCP task operations
+- Improved help command responses with full feature list
+- Updated tool display names, icons, and colors in frontend
+
+--------------------------------------------------------------------------------
+
+VERSION 1.0.0 - Phase IV Kubernetes Deployment
+================================================================================
+
+- Helm chart for Kubernetes deployment
+- Docker multi-stage builds
+- Minikube local deployment
+- NodePort services for frontend and API
+- PostgreSQL in-cluster deployment
+- Kubernetes Secrets management
+- Health probes configuration
+
+--------------------------------------------------------------------------------
+
+VERSION 0.3.0 - Phase III AI Chatbot Integration
+================================================================================
+
+- Cohere AI integration (FREE tier)
+- Natural language intent detection
+- Task execution via MCP-style tools
+- Chat UI with animations
+- Conversation persistence
+
+--------------------------------------------------------------------------------
+
+VERSION 0.2.0 - Phase II Full-Stack Web Application
+================================================================================
+
+- FastAPI backend with async PostgreSQL
+- Next.js 14 frontend with TypeScript
+- JWT authentication with HTTP-only cookies
+- Full task CRUD operations
+- Responsive UI with dark/light themes
+- Rate limiting middleware
+- CORS configuration
+
+--------------------------------------------------------------------------------
+
+VERSION 0.1.0 - Phase I Console Todo (Specification)
+================================================================================
+
+- Initial project specification
+- Requirements documentation
+- Architecture design

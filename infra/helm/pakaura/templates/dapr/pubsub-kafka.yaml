@@ -1,0 +1,65 @@
+{{- if .Values.dapr.enabled }}
+# T-006: Dapr Pub/Sub component backed by Kafka
+# Plan ref: Plan §4.1 (pubsub-kafka), Plan §4.2 (pubsub.kafka details)
+# Spec ref: FR-029 (pub/sub abstraction), Infrastructure Abstraction Requirements
+# Constitution VII: No direct Kafka clients — all pub/sub through this Dapr component
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub-kafka
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    # Broker address: local K8s service or external managed broker
+    - name: brokers
+      {{- if and .Values.kafka.external (ne (.Values.kafka.external.brokers | default "") "") }}
+      value: {{ .Values.kafka.external.brokers | quote }}
+      {{- else }}
+      value: "kafka.{{ .Values.global.namespace }}.svc.cluster.local:9092"
+      {{- end }}
+    # Consumer behavior
+    - name: consumerGroup
+      value: "pakaura-default"
+    - name: initialOffset
+      value: "oldest"
+    # CloudEvents format (Plan §3.4)
+    - name: rawPayload
+      value: "false"
+    # Disable Kafka client logging noise
+    - name: clientID
+      value: "pakaura-dapr"
+    {{- if and .Values.kafka.external .Values.kafka.external.auth (.Values.kafka.external.auth.enabled | default false) }}
+    # --- Production: SASL/SCRAM authentication ---
+    # Plan ref: Plan §4.2 (Production — SASL/SCRAM, TLS)
+    # Constitution IX: Credentials from Helm --set, never hard-coded
+    - name: authType
+      value: "password"
+    - name: saslMechanism
+      value: {{ .Values.kafka.external.auth.mechanism | default "SCRAM-SHA-512" | quote }}
+    - name: saslUsername
+      value: {{ .Values.kafka.external.auth.username | quote }}
+    - name: saslPassword
+      value: {{ .Values.kafka.external.auth.password | quote }}
+    {{- else }}
+    # --- Local: No authentication (internal cluster) ---
+    - name: authType
+      value: "none"
+    {{- end }}
+    {{- if and .Values.kafka.external .Values.kafka.external.tls (.Values.kafka.external.tls.enabled | default false) }}
+    # --- Production: TLS enabled ---
+    - name: disableTls
+      value: "false"
+    {{- if .Values.kafka.external.tls.skipVerify }}
+    - name: skipVerify
+      value: "true"
+    {{- end }}
+    {{- else }}
+    # --- Local: TLS disabled ---
+    - name: disableTls
+      value: "true"
+    {{- end }}
+{{- end }}

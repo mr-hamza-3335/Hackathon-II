@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     ai_rate_limit_per_minute: int = 30  # Per user rate limit
     ai_max_input_length: int = 10000  # Max input message length for security
 
+    # T-013: Dapr Configuration (Phase V — Event Publishing)
+    # Constitution VII: All pub/sub via Dapr, no direct Kafka clients
+    dapr_enabled: bool = False  # Enable event publishing via Dapr sidecar
+    dapr_http_port: int = 3500  # Dapr sidecar HTTP port (auto-injected in K8s)
+    dapr_pubsub_name: str = "pubsub-kafka"  # Dapr pubsub component name
+    dapr_publish_timeout: float = 2.0  # HTTP timeout for publish calls (seconds)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -1,0 +1,125 @@
+# Production deployment values for Oracle OKE (or AKS/GKE)
+# T-003: Kafka production configuration
+# T-050 will extend with full service configurations
+# Plan ref: Plan §8.2 (Cloud Kubernetes), Plan §8.3 (Values layering)
+# Spec ref: FR-039–043 (production deployment requirements)
+#
+# Constitution Principle XI: Cloud-Agnostic Architecture
+#   Switching cloud providers requires ONLY changing this file + CI/CD secrets.
+#   Zero application code changes.
+#
+# Usage:
+#   helm install pakaura infra/helm/pakaura \
+#     -f infra/helm/pakaura/values-production.yaml \
+#     -n pakaura --create-namespace
+
+global:
+  namespace: pakaura
+  imageTag: "5.0.0"
+
+# --- Image Registry (OCIR for Oracle, ACR for Azure, AR for GCP) ---
+# Override per provider. Set via --set or CI/CD pipeline.
+imageRegistry: ""  # e.g., "<region>.ocir.io/<tenancy>"
+
+# --- Frontend ---
+frontend:
+  replicaCount: 2  # Plan §2.3: 2 replicas in production
+  image:
+    # Production images pulled from container registry
+    # Full path: {{ .Values.imageRegistry }}/pakaura-frontend:{{ tag }}
+    pullPolicy: Always  # FR-039: always pull latest from registry
+  env:
+    apiUrl: ""  # Set to production domain, e.g., "https://pakaura.example.com"
+
+# --- API ---
+api:
+  replicaCount: 2  # Plan §2.3: 2 replicas in production
+  image:
+    pullPolicy: Always
+  env:
+    frontendUrl: ""  # Set to production domain for CORS
+    environment: "production"
+    debug: "false"
+
+# --- Kafka ---
+# Production: Disable local StatefulSet, use managed/external broker
+# Plan ref: Plan §4.2 (Production config — SASL/SCRAM, TLS)
+# Spec ref: FR-040 (managed Kafka or equivalent streaming service)
+kafka:
+  # Local Kafka StatefulSet is DISABLED in production.
+  # Dapr pubsub component connects to external managed broker instead.
+  enabled: false
+  # Production topic settings (used by Dapr pubsub component and topic init)
+  topics:
+    partitions: 6  # Plan §3.1: 6 partitions in production
+    replicationFactor: 3
+  retention:
+    ms: "604800000"  # 7-day retention per FR-030
+  # External broker configuration (consumed by Dapr pubsub-kafka component)
+  external:
+    # Broker endpoints — set via --set or CI/CD secrets
+    # Oracle Streaming: "<stream-pool-id>.streaming.<region>.oci.oraclecloud.com:9092"
+    # Self-managed:     "kafka-0.kafka:9092,kafka-1.kafka:9092,kafka-2.kafka:9092"
+    # Azure Event Hubs: "<namespace>.servicebus.windows.net:9093"
+    brokers: ""
+    # SASL/SCRAM authentication
+    auth:
+      enabled: true
+      mechanism: "SCRAM-SHA-512"  # or "PLAIN" for some managed services
+      # Username and password MUST come from Kubernetes secrets (Constitution IX)
+      # Set via: --set kafka.external.auth.username=... --set kafka.external.auth.password=...
+      username: ""
+      password: ""
+    # TLS configuration
+    tls:
+      enabled: true
+      # Skip CA verification only if using self-signed certs (not recommended)
+      skipVerify: false
+
+# --- PostgreSQL ---
+# Production: Disable local pod, use managed database
+# Spec ref: FR-040 (managed PostgreSQL)
+postgres:
+  enabled: false  # Use Oracle Autonomous DB, Azure DB for PostgreSQL, or Cloud SQL
+
+# --- Secrets ---
+# All secrets MUST be set via --set or external secret management (Constitution IX)
+# NEVER commit real values to this file
+secrets:
+  databaseUrl: ""     # REQUIRED — managed PostgreSQL connection string
+  jwtSecret: ""       # REQUIRED — production JWT signing key
+  cohereApiKey: ""    # REQUIRED — Cohere AI API key
+
+# --- Dapr Component Overrides (consumed by Dapr component templates) ---
+# Plan ref: Plan §4.2 (Production — SASL/SCRAM, TLS enabled)
+dapr:
+  enabled: true
+  pubsub:
+    # Production pubsub uses the external kafka broker config above
+    # The Dapr component template reads kafka.external.* values
+    type: "pubsub.kafka"
+  statestore:
+    # Production: Redis for fast ephemeral state (WS connections, reminder cache)
+    # Plan ref: Plan §4.3 (Production — Redis via Dapr state store)
+    type: "state.redis"
+    redis:
+      host: ""  # Set to managed Redis endpoint or Redis pod service
+      password: ""
+  secretstore:
+    type: "secretstores.kubernetes"
+
+# --- Ingress / TLS ---
+# Spec ref: FR-041 (HTTPS endpoint with valid domain or IP)
+# T-058 will create the Ingress template that consumes these values
+ingress:
+  enabled: true
+  className: "nginx"  # or oracle-native ingress controller
+  host: ""  # Set to production domain, e.g., "pakaura.example.com"
+  tls:
+    enabled: true
+    secretName: "pakaura-tls"  # K8s TLS secret with cert + key
+
+# --- Monitoring ---
+# Spec ref: FR-048–051 (observability mandatory, Constitution XIII)
+monitoring:
+  enabled: true

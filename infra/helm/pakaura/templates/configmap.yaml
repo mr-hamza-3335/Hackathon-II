@@ -26,3 +26,8 @@ data:
   # Environment
   ENVIRONMENT: {{ .Values.api.env.environment | quote }}
   DEBUG: {{ .Values.api.env.debug | quote }}
+
+  # T-020: Dapr Event Publishing Configuration (Phase V Stage 4)
+  DAPR_ENABLED: {{ .Values.api.env.daprEnabled | default "false" | quote }}
+  DAPR_PUBSUB_NAME: {{ .Values.api.env.daprPubsubName | default "pubsub-kafka" | quote }}
+  DAPR_PUBLISH_TIMEOUT: {{ .Values.api.env.daprPublishTimeout | default "2.0" | quote }}

@@ -1,0 +1,80 @@
+{{- if .Values.kafka.enabled }}
+# T-001: Kafka StatefulSet for local Minikube (single-broker)
+# Plan ref: Plan §3.1 (Topics), Plan §8.1 (Minikube local)
+# Spec ref: FR-036 (local deployment includes Kafka single-node)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: kafka
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        # KRaft-mode Kafka (no ZooKeeper required)
+        - name: kafka
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 9092
+              name: broker
+            - containerPort: 9093
+              name: controller
+          env:
+            # KRaft mode configuration
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka.{{ .Values.global.namespace }}.svc.cluster.local:9092"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@localhost:9093"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_LOG_RETENTION_MS
+              value: {{ .Values.kafka.retention.ms | quote }}
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            - name: CLUSTER_ID
+              value: {{ .Values.kafka.clusterId | quote }}
+          volumeMounts:
+            - name: kafka-storage
+              mountPath: /var/lib/kafka/data
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: {{ .Values.kafka.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.kafka.probes.readiness.periodSeconds }}
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: {{ .Values.kafka.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.kafka.probes.liveness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.kafka.resources | nindent 12 }}
+      volumes:
+        - name: kafka-storage
+          emptyDir: {}
+{{- end }}

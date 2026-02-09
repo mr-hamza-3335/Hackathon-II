@@ -1,19 +1,26 @@
 """
 Database operations for MCP tools.
 Phase III: AI Chatbot - Stateless task operations (all state in PostgreSQL)
+T-019: Integrate event publishing into MCP task operations
+Plan ref: Plan §5.2 (MCP integration points)
+Spec refs: FR-001–006 (event publishing), FR-011 (non-blocking)
 
 All operations are stateless and interact directly with PostgreSQL.
 """
+import logging
 import os
 import asyncpg
 from uuid import UUID
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class TaskOperations:
     """
     Stateless database operations for task management.
     All state is persisted in PostgreSQL.
+    T-019: Event publishing added after successful DB operations.
     """
 
     def __init__(self, database_url: Optional[str] = None):
@@ -27,6 +34,29 @@ class TaskOperations:
         """Get a database connection."""
         return await asyncpg.connect(self.database_url)
 
+    async def _publish_events(self, task_dict: dict, action: str, user_id: str) -> None:
+        """
+        Publish lifecycle + sync events for a task operation.
+
+        T-019: Shared helper for all MCP methods
+        FR-001–006: Lifecycle + sync events
+        FR-011: Non-blocking — exceptions caught, never propagated
+        """
+        try:
+            from ..events import get_event_publisher
+            publisher = get_event_publisher()
+            task_id = str(task_dict.get("id", ""))
+            await publisher.publish_task_event_from_dict(task_dict, action, user_id)
+            await publisher.publish_sync_event(task_id, user_id, action)
+        except Exception as exc:
+            # T-019: Safety guard — NEVER let event publishing break MCP operations
+            logger.warning(
+                "MCP event publish failed for %s: %s",
+                action,
+                str(exc),
+                extra={"action": action, "user_id": user_id, "error": str(exc)},
+            )
+
     async def add_task(self, user_id: str, title: str) -> dict:
         """
         Create a new task for the user.
@@ -37,6 +67,7 @@ class TaskOperations:
 
         Returns:
             dict with success status and task data or error
+        T-019: Publishes task.created + sync event on success
         """
         if not title or not title.strip():
             return {"success": False, "error": "Task title cannot be empty"}
@@ -65,7 +96,7 @@ class TaskOperations:
                 title.strip()
             )
 
-            return {
+            result = {
                 "success": True,
                 "task": {
                     "id": str(row["id"]),
@@ -74,6 +105,11 @@ class TaskOperations:
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None
                 }
             }
+
+            # T-019: Publish task.created + sync event (FR-001, FR-006)
+            await self._publish_events(result["task"], "created", user_id)
+
+            return result
         except Exception as e:
             return {"success": False, "error": str(e)}
         finally:
@@ -135,6 +171,7 @@ class TaskOperations:
 
         Returns:
             dict with success status and updated task data
+        T-019: Publishes task.completed + sync event on success
         """
         conn = await self.get_connection()
         try:
@@ -156,7 +193,7 @@ class TaskOperations:
                     "error": "Task not found or you don't have permission to update it"
                 }
 
-            return {
+            result = {
                 "success": True,
                 "task": {
                     "id": str(row["id"]),
@@ -165,6 +202,11 @@ class TaskOperations:
                     "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
                 }
             }
+
+            # T-019: Publish task.completed + sync event (FR-003, FR-006)
+            await self._publish_events(result["task"], "completed", user_id)
+
+            return result
         except Exception as e:
             return {"success": False, "error": str(e)}
         finally:
@@ -180,10 +222,11 @@ class TaskOperations:
 
         Returns:
             dict with success status and deleted task info
+        T-019: Publishes task.deleted + sync event on success
         """
         conn = await self.get_connection()
         try:
-            # Get task info before deletion (for confirmation message)
+            # Get task info before deletion (for confirmation message and event)
             task = await conn.fetchrow(
                 "SELECT id, title FROM tasks WHERE id = $1 AND user_id = $2",
                 UUID(task_id),
@@ -202,6 +245,10 @@ class TaskOperations:
                 UUID(task_id),
                 UUID(user_id)
             )
+
+            # T-019: Publish task.deleted + sync event (FR-005, FR-006)
+            task_dict = {"id": str(task["id"]), "title": task["title"], "completed": None}
+            await self._publish_events(task_dict, "deleted", user_id)
 
             return {
                 "success": True,
@@ -224,6 +271,7 @@ class TaskOperations:
 
         Returns:
             dict with success status and updated task data
+        T-019: Publishes task.uncompleted + sync event on success
         """
         conn = await self.get_connection()
         try:
@@ -244,7 +292,7 @@ class TaskOperations:
                     "error": "Task not found or you don't have permission to update it"
                 }
 
-            return {
+            result = {
                 "success": True,
                 "task": {
                     "id": str(row["id"]),
@@ -253,6 +301,11 @@ class TaskOperations:
                     "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
                 }
             }
+
+            # T-019: Publish task.uncompleted + sync event (FR-004, FR-006)
+            await self._publish_events(result["task"], "uncompleted", user_id)
+
+            return result
         except Exception as e:
             return {"success": False, "error": str(e)}
         finally:
@@ -267,14 +320,17 @@ class TaskOperations:
 
         Returns:
             dict with success status and count of deleted tasks
+        T-019: Publishes task.deleted + sync event for each deleted task
         """
         conn = await self.get_connection()
         try:
-            # Get count of completed tasks before deletion
-            count = await conn.fetchval(
-                "SELECT COUNT(*) FROM tasks WHERE user_id = $1 AND completed = true",
+            # T-019: Get completed tasks before deletion (for event payloads)
+            completed_rows = await conn.fetch(
+                "SELECT id, title FROM tasks WHERE user_id = $1 AND completed = true",
                 UUID(user_id)
             )
+
+            count = len(completed_rows)
 
             if count == 0:
                 return {
@@ -288,6 +344,11 @@ class TaskOperations:
                 "DELETE FROM tasks WHERE user_id = $1 AND completed = true",
                 UUID(user_id)
             )
+
+            # T-019: Publish task.deleted + sync for each deleted task (FR-005, FR-006)
+            for row in completed_rows:
+                task_dict = {"id": str(row["id"]), "title": row["title"], "completed": True}
+                await self._publish_events(task_dict, "deleted", user_id)
 
             return {
                 "success": True,
@@ -310,6 +371,7 @@ class TaskOperations:
 
         Returns:
             dict with success status and updated task data
+        T-019: Publishes task.updated + sync event on success
         """
         if not title or not title.strip():
             return {"success": False, "error": "Task title cannot be empty"}
@@ -337,7 +399,7 @@ class TaskOperations:
                     "error": "Task not found or you don't have permission to update it"
                 }
 
-            return {
+            result = {
                 "success": True,
                 "task": {
                     "id": str(row["id"]),
@@ -346,6 +408,13 @@ class TaskOperations:
                     "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
                 }
             }
+
+            # T-019: Publish task.updated + sync event (FR-002, FR-006)
+            await self._publish_events(
+                result["task"], "updated", user_id,
+            )
+
+            return result
         except Exception as e:
             return {"success": False, "error": str(e)}
         finally:

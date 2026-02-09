@@ -16,6 +16,12 @@ spec:
     metadata:
       labels:
         app: api
+      {{- if .Values.dapr.enabled }}
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "pakaura-api"
+        dapr.io/app-port: "{{ .Values.api.service.port }}"
+      {{- end }}
     spec:
       initContainers:
         - name: run-migrations

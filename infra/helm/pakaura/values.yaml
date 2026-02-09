@@ -70,6 +70,43 @@ api:
     aiRateLimitPerMinute: "30"
     environment: "production"
     debug: "false"
+    # T-020: Dapr event publishing configuration (Phase V Stage 4)
+    daprEnabled: "true"       # Enable event publishing in K8s
+    daprPubsubName: "pubsub-kafka"
+    daprPublishTimeout: "2.0"
+
+# Kafka (disabled by default - use managed streaming in production)
+# T-001: Kafka configuration
+# Plan ref: Plan §3.1 (Topics), Plan §2.3 (Resource Budgets)
+kafka:
+  enabled: false
+  image:
+    repository: apache/kafka
+    tag: "3.7.0"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+  # KRaft cluster ID (must be consistent across restarts)
+  clusterId: "MkU3OEVBNTcwNTJENDM2Qk"
+  # 7-day retention per spec FR-030
+  retention:
+    ms: "604800000"
+  # Topic defaults
+  topics:
+    partitions: 3
+    replicationFactor: 1
+  probes:
+    readiness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 15
 
 # PostgreSQL (disabled by default - use external DB in production)
 postgres:
@@ -77,6 +114,21 @@ postgres:
   user: "pakaura"
   password: ""
   database: "pakaura_db"
+
+# Dapr components configuration
+# T-006: Dapr pubsub, state store, secret store
+# Plan ref: Plan §4.1 (Component Inventory)
+dapr:
+  enabled: false  # Set to true when Dapr is installed on the cluster
+  pubsub:
+    type: "pubsub.kafka"
+  statestore:
+    type: "state.in-memory"  # Local default; production overrides to state.redis
+    redis:
+      host: ""
+      password: ""
+  secretstore:
+    type: "secretstores.kubernetes"
 
 # Secrets (MUST be set via --set or external management)
 secrets:

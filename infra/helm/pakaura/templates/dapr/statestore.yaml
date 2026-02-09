@@ -1,0 +1,40 @@
+{{- if .Values.dapr.enabled }}
+# T-007: Dapr State Store component
+# Plan ref: Plan §4.1 (statestore-redis), Plan §4.3 (State Store details)
+# Spec ref: Infrastructure Abstraction Requirements (State Management Abstraction)
+#
+# Local:      in-memory (no Redis dependency, ephemeral, rebuilds on restart)
+# Production: Redis (fast lookup for WS connections + reminder state)
+#
+# State key patterns:
+#   ws:user:{user_id}     — WebSocket Gateway connection registry
+#   reminder:{task_id}    — Notification Service job state
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.dapr.statestore.type }}
+  version: v1
+  metadata:
+    {{- if eq .Values.dapr.statestore.type "state.redis" }}
+    # --- Production: Redis-backed state store ---
+    - name: redisHost
+      value: {{ .Values.dapr.statestore.redis.host | quote }}
+    {{- if ne (.Values.dapr.statestore.redis.password | default "") "" }}
+    - name: redisPassword
+      value: {{ .Values.dapr.statestore.redis.password | quote }}
+    {{- end }}
+    - name: enableTLS
+      value: "false"
+    {{- end }}
+    # Key prefix to avoid collisions if multiple apps share the store
+    - name: keyPrefix
+      value: "pakaura"
+    # Actor state store support (required for Dapr actor features)
+    - name: actorStateStore
+      value: "true"
+{{- end }}

@@ -1,0 +1,126 @@
+{{- if .Values.dapr.enabled }}
+# T-009: Dapr subscription definitions
+# Plan ref: Plan §4.2 (Subscription mapping table — all 7 subscriptions)
+# Spec ref: FR-029–034 (event architecture), Event Categories section
+# Constitution VII: All event subscribing via Dapr declarations, never direct Kafka consumers
+#
+# Each subscription routes events from a Kafka topic to a specific
+# service endpoint via Dapr. Consumer groups ensure each service gets
+# its own copy of events independently.
+
+# ============================================================
+# RECURRING SERVICE — subscribes to task.completed on task-events
+# Plan ref: Plan §3.3 (Recurring consumes task-events)
+# Spec ref: FR-033 (recurring triggered by completion event)
+# ============================================================
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: recurring-task-completed
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: task-events
+  routes:
+    default: /events/task-completed
+  metadata:
+    consumerGroup: recurring-svc
+
+# ============================================================
+# AUDIT SERVICE — subscribes to all task events on task-events
+# Plan ref: Plan §3.3 (Audit consumes task-events and reminders)
+# Spec ref: FR-019 (log every task mutation)
+# ============================================================
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: audit-task-events
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: task-events
+  routes:
+    default: /events/task-any
+  metadata:
+    consumerGroup: audit-svc
+
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: audit-reminder-events
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: reminders
+  routes:
+    default: /events/reminder-any
+  metadata:
+    consumerGroup: audit-svc
+
+# ============================================================
+# NOTIFICATION SERVICE — subscribes to task-events for reminder scheduling/cancellation
+# Plan ref: Plan §3.3 (Notification consumes task-events)
+# Spec ref: FR-004–006 (reminder scheduling and cancellation)
+# ============================================================
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: notification-task-check
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: task-events
+  routes:
+    default: /events/task-check-reminder
+  metadata:
+    consumerGroup: notification-svc
+
+# ============================================================
+# WEBSOCKET GATEWAY — subscribes to task-updates for real-time sync
+# Plan ref: Plan §3.3 (WebSocket GW consumes task-updates and reminders)
+# Spec ref: FR-024 (real-time push), FR-034 (driven by event stream)
+# ============================================================
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: websocket-sync-events
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: task-updates
+  routes:
+    default: /events/sync
+  metadata:
+    consumerGroup: websocket-gw
+
+---
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: websocket-reminder-push
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "pakaura.labels" . | nindent 4 }}
+spec:
+  pubsubname: pubsub-kafka
+  topic: reminders
+  routes:
+    default: /events/reminder-push
+  metadata:
+    consumerGroup: websocket-gw
+{{- end }}

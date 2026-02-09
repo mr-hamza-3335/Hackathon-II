@@ -27,8 +27,29 @@ api:
   env:
     # CORS origin must match the URL the browser uses to access the frontend
     frontendUrl: "http://localhost:3000"
+    # T-020: Enable Dapr event publishing locally with Dapr sidecar
+    daprEnabled: "true"
   service:
     type: ClusterIP  # Access via port-forward, not NodePort
+
+# Enable Dapr components for Phase V (T-006)
+# Plan ref: Plan §4.2 (Local — no auth, internal cluster)
+dapr:
+  enabled: true
+
+# Local Kafka for Phase V (T-001)
+# Plan ref: Plan §8.1 (single-broker Kafka on Minikube)
+kafka:
+  enabled: true
+  image:
+    pullPolicy: IfNotPresent  # Pulled from Docker Hub
+  resources:
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
 
 # Local PostgreSQL for Phase IV
 postgres:

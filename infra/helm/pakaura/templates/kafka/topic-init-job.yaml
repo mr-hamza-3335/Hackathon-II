@@ -1,0 +1,73 @@
+{{- if .Values.kafka.enabled }}
+# T-002: Kafka topic initialization job
+# Plan ref: Plan §3.1 (Topics table — task-events, reminders, task-updates)
+# Spec refs: FR-029 (durable events), FR-030 (7-day retention), Event Categories
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topic-init-{{ .Release.Revision }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: kafka-topic-init
+    {{- include "pakaura.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: kafka-topic-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: topic-init
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              BROKER="kafka.{{ .Values.global.namespace }}.svc.cluster.local:9092"
+              PARTITIONS={{ .Values.kafka.topics.partitions }}
+              REPLICATION={{ .Values.kafka.topics.replicationFactor }}
+              RETENTION_MS={{ .Values.kafka.retention.ms }}
+
+              echo "Waiting for Kafka broker at $BROKER..."
+              until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server "$BROKER" > /dev/null 2>&1; do
+                echo "  Broker not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "Kafka broker is ready."
+
+              # Create topics (--if-not-exists ensures idempotency)
+              for TOPIC in task-events reminders task-updates; do
+                echo "Creating topic: $TOPIC (partitions=$PARTITIONS, replication=$REPLICATION, retention=${RETENTION_MS}ms)"
+                /opt/kafka/bin/kafka-topics.sh \
+                  --bootstrap-server "$BROKER" \
+                  --create \
+                  --if-not-exists \
+                  --topic "$TOPIC" \
+                  --partitions "$PARTITIONS" \
+                  --replication-factor "$REPLICATION" \
+                  --config retention.ms="$RETENTION_MS"
+              done
+
+              echo ""
+              echo "=== Topic verification ==="
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BROKER" --list
+
+              echo ""
+              for TOPIC in task-events reminders task-updates; do
+                echo "--- $TOPIC ---"
+                /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BROKER" --describe --topic "$TOPIC"
+              done
+
+              echo ""
+              echo "All topics created successfully."
+{{- end }}

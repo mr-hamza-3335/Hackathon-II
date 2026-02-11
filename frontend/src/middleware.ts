@@ -13,29 +13,13 @@ const protectedPaths = ['/dashboard', '/assistant'];
 const authPaths = ['/login', '/register'];
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const authToken = request.cookies.get('auth_token');
-
-  // Check if current path is protected
-  const isProtectedPath = protectedPaths.some((path) =>
-    pathname.startsWith(path)
-  );
-
-  // Check if current path is an auth page
-  const isAuthPath = authPaths.some((path) => pathname.startsWith(path));
-
-  // FR-024: Redirect unauthenticated users to login
-  if (isProtectedPath && !authToken) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('from', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Redirect authenticated users away from auth pages
-  if (isAuthPath && authToken) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
+  // In cross-domain deployments (Vercel frontend + Render backend),
+  // the auth_token cookie is set on the backend domain and is NOT visible
+  // to Next.js server-side middleware. Checking it here causes a redirect
+  // loop because the cookie is never found.
+  //
+  // Auth protection is handled client-side in the protected layout
+  // via API call to /api/v1/auth/me with credentials: 'include'.
   return NextResponse.next();
 }
 

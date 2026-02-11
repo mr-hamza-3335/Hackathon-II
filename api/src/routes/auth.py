@@ -22,7 +22,7 @@ def set_auth_cookie(response: Response, token: str) -> None:
     """
     Set HTTP-only authentication cookie.
 
-    NFR-007: HTTP-only cookies with Secure and SameSite=Lax attributes
+    NFR-007: HTTP-only cookies with Secure and SameSite=None attributes
     FR-028: 24-hour token expiration (via max_age)
     """
     response.set_cookie(
@@ -41,10 +41,14 @@ def clear_auth_cookie(response: Response) -> None:
     Clear authentication cookie on logout.
 
     FR-031: Clear authentication cookies on logout with immediate effect
+    Cookie attributes must match set_cookie for cross-domain deletion.
     """
     response.delete_cookie(
         key=settings.cookie_name,
         path="/",
+        secure=settings.cookie_secure,
+        httponly=settings.cookie_httponly,
+        samesite=settings.cookie_samesite,
     )
 
 

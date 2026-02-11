@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     jwt_expiration_hours: int = 24
 
     # CORS Configuration (FR-034, FR-035)
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "https://hackathon-ii-phi.vercel.app"
 
     # Rate Limiting (FR-036, FR-037)
     rate_limit_auth_per_minute: int = 10  # Per IP for auth endpoints
@@ -31,8 +31,8 @@ class Settings(BaseSettings):
 
     # Cookie settings (NFR-007)
     cookie_name: str = "auth_token"
-    cookie_secure: bool = False  # Set True in production (HTTPS)
-    cookie_samesite: str = "lax"
+    cookie_secure: bool = True  # HTTPS in production (Vercel + Render)
+    cookie_samesite: str = "none"  # Required for cross-domain cookies
     cookie_httponly: bool = True
     cookie_max_age: int = 86400  # 24 hours in seconds
 

@@ -25,3 +25,6 @@ cohere>=5.0.0
 
 # JSON schema validation
 jsonschema>=4.20.0
+
+# 🔥 ADD THIS LINE
+mcp
